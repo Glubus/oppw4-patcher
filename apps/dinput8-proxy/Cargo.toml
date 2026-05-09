@@ -1,0 +1,16 @@
+[package]
+name = "oppw4-dinput8-proxy"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+name = "dinput8"
+
+[dependencies]
+oppw4-rdb.workspace = true
+tracing.workspace = true
+tracing-appender.workspace = true
+tracing-subscriber.workspace = true
+zip.workspace = true

@@ -1,0 +1,19 @@
+[workspace]
+members = [
+    "apps/dinput8-proxy",
+    "apps/rdb-tool",
+    "crates/oppw4-rdb",
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+version = "0.1.0"
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+oppw4-rdb = { path = "crates/oppw4-rdb" }
+tracing = "0.1"
+tracing-appender = "0.2"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }

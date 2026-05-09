@@ -1,0 +1,14 @@
+/target/
+**/*.pdb
+**/*.ilk
+**/*.exp
+**/*.lib
+*.log
+
+# Game-side folders. The DLL reads these from the OPPW4 install directory,
+# not from the source repo.
+/mods/
+/releases/
+
+# Local reverse-engineering scratch space.
+/scratch/

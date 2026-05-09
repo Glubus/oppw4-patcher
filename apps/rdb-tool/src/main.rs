@@ -1,10 +1,13 @@
 use std::{env, fs, path::Path, process};
 
+mod linkdata_costume_dump;
+mod linkdata_scan;
+
 use oppw4_rdb::{
-    attach_mod_file_sizes, build_virtualization_table, parse_block_tail, parse_name_hash_catalog,
-    parse_payload_tail, parse_prefixed_hex_hash, parse_rdb, scan_archive_names_with_catalog,
-    scan_virtualized_names_with_catalog, ArchiveScan, NameHashEntry, RdbAddressSuffix, RdbBlock,
-    RdbIndex, VirtualManager, VirtualReplacement,
+    attach_mod_file_sizes, build_virtualization_table, inflate_linkdata_entry, parse_block_tail,
+    parse_linkdata, parse_name_hash_catalog, parse_payload_tail, parse_prefixed_hex_hash,
+    parse_rdb, scan_archive_names_with_catalog, scan_virtualized_names_with_catalog, ArchiveScan,
+    NameHashEntry, RdbAddressSuffix, RdbBlock, RdbIndex, VirtualManager, VirtualReplacement,
 };
 
 struct CliArgs {
@@ -33,6 +36,12 @@ enum Command {
         rdb_root: String,
         catalog_path: String,
     },
+    LinkDataSearch {
+        linkdata_path: String,
+        needle: String,
+    },
+    LinkDataCostumeDump(linkdata_costume_dump::DumpConfig),
+    LinkDataProximityScan(linkdata_scan::ScanConfig),
 }
 
 fn main() {
@@ -61,6 +70,22 @@ fn parse_args(mut args: impl Iterator<Item = String>) -> Result<CliArgs, String>
 
     if rdb_path == "--scan-root" {
         return parse_scan_root_command(args).map(|command| CliArgs { command });
+    }
+
+    if rdb_path == "--linkdata-search" {
+        return parse_linkdata_search_command(args).map(|command| CliArgs { command });
+    }
+
+    if rdb_path == "--linkdata-costume-dump" {
+        return linkdata_costume_dump::parse_command(args).map(|command| CliArgs {
+            command: Command::LinkDataCostumeDump(command),
+        });
+    }
+
+    if rdb_path == "--linkdata-proximity-scan" {
+        return linkdata_scan::parse_command(args).map(|command| CliArgs {
+            command: Command::LinkDataProximityScan(command),
+        });
     }
 
     let command = match args.next().as_deref() {
@@ -140,6 +165,26 @@ fn parse_scan_root_command(mut args: impl Iterator<Item = String>) -> Result<Com
     })
 }
 
+fn parse_linkdata_search_command(
+    mut args: impl Iterator<Item = String>,
+) -> Result<Command, String> {
+    let Some(linkdata_path) = args.next() else {
+        return Err(linkdata_search_usage());
+    };
+    let Some(needle) = args.next() else {
+        return Err(linkdata_search_usage());
+    };
+
+    Ok(Command::LinkDataSearch {
+        linkdata_path,
+        needle,
+    })
+}
+
+fn linkdata_search_usage() -> String {
+    "usage: oppw4-rdb-tools --linkdata-search <linkdata-bin> <needle>".to_string()
+}
+
 fn scan_usage() -> String {
     "usage: oppw4-rdb-tools <path-to-rdb> --scan <folder> [--catalog <dll>]".to_string()
 }
@@ -212,6 +257,22 @@ fn run_command(command: Command) {
             rdb_root,
             catalog_path,
         } => scan_root(&patcher_root, &rdb_root, &load_catalog(&catalog_path)),
+        Command::LinkDataSearch {
+            linkdata_path,
+            needle,
+        } => search_linkdata(&linkdata_path, &needle),
+        Command::LinkDataCostumeDump(config) => {
+            if let Err(error) = linkdata_costume_dump::run(config) {
+                eprintln!("{error}");
+                process::exit(1);
+            }
+        }
+        Command::LinkDataProximityScan(config) => {
+            if let Err(error) = linkdata_scan::run(config) {
+                eprintln!("{error}");
+                process::exit(1);
+            }
+        }
     }
 }
 
@@ -249,6 +310,65 @@ fn search_hash(index: &RdbIndex, hash: u32) {
     println!("search_hash: 0x{hash:08x}");
     println!("matches: {}", blocks.len());
     print_blocks(blocks.into_iter(), true);
+}
+
+fn search_linkdata(linkdata_path: &str, needle: &str) {
+    let bytes = read_file_or_exit(linkdata_path, "LINKDATA");
+    let index = match parse_linkdata(&bytes) {
+        Ok(index) => index,
+        Err(error) => {
+            eprintln!("failed to parse LINKDATA {linkdata_path}: {error:?}");
+            process::exit(1);
+        }
+    };
+    let needle_bytes = needle.as_bytes();
+
+    println!("linkdata: {linkdata_path}");
+    println!("entries: {}", index.entry_count);
+    println!("needle: {needle}");
+
+    let mut matches = 0usize;
+    for entry in &index.entries {
+        let inflated = match inflate_linkdata_entry(&bytes, entry) {
+            Ok(inflated) if !inflated.is_empty() => inflated,
+            Ok(_) => continue,
+            Err(_) => continue,
+        };
+        let mut cursor = 0usize;
+        while let Some(relative) = find_bytes_from(&inflated, needle_bytes, cursor) {
+            let offset = cursor + relative;
+            matches += 1;
+            println!(
+                "match entry={} entry_table=0x{:x} data=0x{:x} inflated_offset=0x{:x} inflated_size=0x{:x}",
+                entry.index,
+                entry.table_offset,
+                entry.data_offset,
+                offset,
+                inflated.len()
+            );
+            print_linkdata_match_preview(&inflated, offset);
+            cursor = offset + needle_bytes.len();
+        }
+    }
+    println!("matches: {matches}");
+}
+
+fn find_bytes_from(haystack: &[u8], needle: &[u8], start: usize) -> Option<usize> {
+    if needle.is_empty() || start >= haystack.len() {
+        return None;
+    }
+    haystack[start..]
+        .windows(needle.len())
+        .position(|window| window == needle)
+}
+
+fn print_linkdata_match_preview(bytes: &[u8], offset: usize) {
+    let start = offset.saturating_sub(96);
+    let end = (offset + 192).min(bytes.len());
+    let preview = &bytes[start..end];
+    println!("  preview_range=0x{start:x}..0x{end:x}");
+    println!("  text: {}", text_preview(preview));
+    println!("  hex:  {}", hex_preview(preview));
 }
 
 fn print_blocks<'a>(blocks: impl IntoIterator<Item = &'a RdbBlock>, verbose_payload: bool) {

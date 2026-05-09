@@ -2,6 +2,7 @@ mod address;
 mod bytes;
 mod catalog;
 mod hash;
+mod linkdata;
 mod mod_source;
 mod rdb;
 mod scan;
@@ -10,6 +11,9 @@ mod r#virtual;
 pub use address::{parse_block_tail, parse_payload_tail, RdbAddressSuffix, RdbPayloadTail};
 pub use catalog::{parse_name_hash_catalog, NameHashEntry};
 pub use hash::parse_prefixed_hex_hash;
+pub use linkdata::{
+    inflate_linkdata_entry, parse_linkdata, LinkDataEntry, LinkDataError, LinkDataIndex,
+};
 pub use mod_source::{ModAsset, ReadSeek, ReplacementSource};
 pub use r#virtual::{
     assign_virtual_bin_offsets, attach_mod_file_sizes, build_virtualization_table,

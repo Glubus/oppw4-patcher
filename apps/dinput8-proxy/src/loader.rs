@@ -283,6 +283,24 @@ mod tests {
     }
 
     #[test]
+    fn embedded_catalog_contains_screen_layout_database_assets() {
+        let catalog = load_embedded_name_catalog();
+
+        assert!(catalog.iter().any(|entry| {
+            entry.hash == 0x386d71a0
+                && entry
+                    .name
+                    .eq_ignore_ascii_case("105_05_costume_change.kscl")
+        }));
+        assert!(catalog.iter().any(|entry| {
+            entry.hash == 0xfbfc2a79
+                && entry
+                    .name
+                    .eq_ignore_ascii_case("Layout_105_05_costume_change.kidssingletondb")
+        }));
+    }
+
+    #[test]
     fn loader_paths_use_game_side_mods_not_patcher_folder() {
         let game_root = PathBuf::from(r"D:\Game\OPPW4");
         let paths = LoaderPaths::from_base_dir(game_root.clone());

@@ -204,6 +204,7 @@ dependencies = [
 name = "oppw4-rdb"
 version = "0.1.0"
 dependencies = [
+ "flate2",
  "zip",
 ]
 

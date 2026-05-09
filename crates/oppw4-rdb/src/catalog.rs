@@ -168,6 +168,11 @@ fn is_known_asset_extension(extension: &str) -> bool {
             | "kts"
             | "swg"
             | "texinfo"
+            | "kscl"
+            | "kidssingletondb"
+            | "kidsobjdb"
+            | "kidsscndb"
+            | "name"
     )
 }
 
@@ -186,6 +191,41 @@ mod tests {
                 name: "800_294_face_law_dressrosa_External_00.g1t".to_string(),
                 hash: 0x359b9672,
             }]
+        );
+    }
+
+    #[test]
+    fn line_catalog_parser_keeps_screen_layout_kscl_assets() {
+        let entries = parse_name_hash_catalog(b"0x386d71a0,105_05_costume_change.kscl\r\n");
+
+        assert_eq!(
+            entries,
+            vec![NameHashEntry {
+                name: "105_05_costume_change.kscl".to_string(),
+                hash: 0x386d71a0,
+            }]
+        );
+    }
+
+    #[test]
+    fn line_catalog_parser_keeps_kids_database_assets() {
+        let entries = parse_name_hash_catalog(
+            b"0xfbfc2a79,Layout_105_05_costume_change.kidssingletondb\r\n\
+              0xd5407f20,Layout_105_05_costume_change.kidssingletondb.name\r\n",
+        );
+
+        assert_eq!(
+            entries,
+            vec![
+                NameHashEntry {
+                    name: "Layout_105_05_costume_change.kidssingletondb".to_string(),
+                    hash: 0xfbfc2a79,
+                },
+                NameHashEntry {
+                    name: "Layout_105_05_costume_change.kidssingletondb.name".to_string(),
+                    hash: 0xd5407f20,
+                },
+            ]
         );
     }
 

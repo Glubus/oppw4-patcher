@@ -11,9 +11,12 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+mod log;
+mod win;
+
 use oppw4_rdb::{ReplacementSource, VirtualHandle, VirtualManager, VirtualReplacement};
 
-use crate::{log, win};
+pub use log::set_logger;
 
 type Bool = i32;
 type Dword = u32;

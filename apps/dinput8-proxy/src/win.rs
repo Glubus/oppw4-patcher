@@ -2,7 +2,6 @@ use std::{
     ffi::{c_char, c_void},
     mem::transmute,
     path::PathBuf,
-    ptr::null_mut,
     sync::OnceLock,
 };
 
@@ -15,7 +14,7 @@ type Hresult = i32;
 type Lpvoid = *mut c_void;
 
 const MAX_PATH: usize = 260;
-const LOAD_LIBRARY_FAILED: Hmodule = null_mut();
+const LOAD_LIBRARY_FAILED: Hmodule = std::ptr::null_mut();
 
 #[repr(C)]
 pub struct Guid {
@@ -39,13 +38,6 @@ extern "system" {
     fn GetModuleFileNameW(module: Hmodule, buffer: *mut u16, size: u32) -> u32;
     fn LoadLibraryW(path: *const u16) -> Hmodule;
     fn GetProcAddress(module: Hmodule, name: *const c_char) -> *mut c_void;
-    fn GetModuleHandleW(module_name: *const u16) -> Hmodule;
-    fn VirtualProtect(
-        address: Lpvoid,
-        size: usize,
-        new_protect: Dword,
-        old_protect: *mut Dword,
-    ) -> i32;
 }
 
 pub unsafe fn direct_input8_create() -> DirectInput8CreateFn {
@@ -78,20 +70,6 @@ pub fn module_directory(module: Hmodule) -> Option<PathBuf> {
 
     let path = PathBuf::from(String::from_utf16_lossy(&buffer[..len]));
     path.parent().map(PathBuf::from)
-}
-
-pub fn main_module() -> Hmodule {
-    unsafe { GetModuleHandleW(std::ptr::null()) }
-}
-
-pub unsafe fn make_memory_writable(address: Lpvoid, size: usize, old_protect: *mut Dword) -> bool {
-    const PAGE_READWRITE: Dword = 0x04;
-    VirtualProtect(address, size, PAGE_READWRITE, old_protect) != 0
-}
-
-pub unsafe fn restore_memory_protection(address: Lpvoid, size: usize, old_protect: Dword) -> bool {
-    let mut ignored = 0;
-    VirtualProtect(address, size, old_protect, &mut ignored) != 0
 }
 
 pub fn load_library(path: &[u16]) -> Hmodule {

@@ -3,7 +3,7 @@ use std::{
     ptr,
 };
 
-pub const OPPW4_PLUGIN_API_VERSION: u32 = 1;
+pub const OPPW4_PLUGIN_API_VERSION: u32 = 2;
 pub const OPPW4_PLUGIN_INIT_SYMBOL: &[u8] = b"oppw4_plugin_init\0";
 
 pub type PluginInitFn = unsafe extern "system" fn(api: *const Oppw4PluginApi) -> i32;
@@ -15,6 +15,7 @@ pub type HostLogFn =
 pub struct Oppw4PluginApi {
     pub version: u32,
     pub host_context: *mut c_void,
+    pub game_root_utf8: *const c_char,
     pub log: Option<HostLogFn>,
 }
 
@@ -57,6 +58,7 @@ pub const fn null_api() -> Oppw4PluginApi {
     Oppw4PluginApi {
         version: OPPW4_PLUGIN_API_VERSION,
         host_context: ptr::null_mut(),
+        game_root_utf8: ptr::null(),
         log: None,
     }
 }
@@ -89,6 +91,7 @@ mod tests {
         let api = Oppw4PluginApi {
             version: OPPW4_PLUGIN_API_VERSION,
             host_context: ptr::null_mut(),
+            game_root_utf8: ptr::null(),
             log: Some(capture_log),
         };
         let plugin = cstring_lossy("skin_patcher");

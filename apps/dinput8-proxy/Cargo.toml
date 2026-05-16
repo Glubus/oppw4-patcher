@@ -10,7 +10,7 @@ name = "dinput8"
 
 [dependencies]
 oppw4-plugin-api.workspace = true
-oppw4-rdb.workspace = true
+oppw4-hooks.workspace = true
 tracing.workspace = true
 tracing-appender.workspace = true
 tracing-subscriber.workspace = true

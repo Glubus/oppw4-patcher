@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    ffi::{c_void, CStr},
+    ffi::{c_void, CStr, CString},
     fs::{self, File, OpenOptions},
     io::Write,
     path::{Path, PathBuf},
@@ -17,15 +17,15 @@ use crate::{log, win};
 static PLUGIN_LOGS: OnceLock<Mutex<PluginLogRouter>> = OnceLock::new();
 static LOADED_PLUGINS: OnceLock<Mutex<Vec<LoadedPlugin>>> = OnceLock::new();
 
-pub fn initialize(plugin_root: &Path) {
+pub fn initialize(game_root: &Path, plugin_root: &Path) {
     let _ = fs::create_dir_all(plugin_root);
     let _ = PLUGIN_LOGS.set(Mutex::new(PluginLogRouter::new()));
     let _ = LOADED_PLUGINS.set(Mutex::new(Vec::new()));
 
-    load_plugins(plugin_root);
+    load_plugins(game_root, plugin_root);
 }
 
-fn load_plugins(plugin_root: &Path) {
+fn load_plugins(game_root: &Path, plugin_root: &Path) {
     let Ok(entries) = fs::read_dir(plugin_root) else {
         log::write_line(format!(
             "plugin host: plugin dir not readable path={}",
@@ -43,14 +43,14 @@ fn load_plugins(plugin_root: &Path) {
         let Some(manifest) = PluginManifest::read_from_dir(&plugin_dir) else {
             continue;
         };
-        if unsafe { load_plugin(&manifest) } {
+        if unsafe { load_plugin(game_root, &manifest) } {
             loaded += 1;
         }
     }
     log::write_line(format!("plugin host: loaded={loaded}"));
 }
 
-unsafe fn load_plugin(manifest: &PluginManifest) -> bool {
+unsafe fn load_plugin(game_root: &Path, manifest: &PluginManifest) -> bool {
     register_plugin_logs(manifest);
 
     let wide = path_to_wide(&manifest.entry_path);
@@ -75,9 +75,11 @@ unsafe fn load_plugin(manifest: &PluginManifest) -> bool {
     }
 
     let init: PluginInitFn = std::mem::transmute(proc);
+    let game_root_utf8 = cstring_lossy(&game_root.to_string_lossy());
     let api = Oppw4PluginApi {
         version: OPPW4_PLUGIN_API_VERSION,
         host_context: std::ptr::null_mut(),
+        game_root_utf8: game_root_utf8.as_ptr(),
         log: Some(host_log),
     };
     let result = init(&api);
@@ -106,6 +108,16 @@ unsafe fn load_plugin(manifest: &PluginManifest) -> bool {
         manifest.entry_path.display()
     ));
     true
+}
+
+fn cstring_lossy(value: &str) -> CString {
+    let bytes = value
+        .as_bytes()
+        .iter()
+        .copied()
+        .filter(|byte| *byte != 0)
+        .collect::<Vec<_>>();
+    CString::new(bytes).unwrap_or_else(|_| CString::new("").expect("empty cstring"))
 }
 
 fn register_plugin_logs(manifest: &PluginManifest) {

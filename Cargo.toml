@@ -2,6 +2,7 @@
 members = [
     "apps/dinput8-proxy",
     "apps/rdb-tool",
+    "crates/oppw4-hooks",
     "crates/oppw4-plugin-api",
     "crates/oppw4-rdb",
     "official_plugins/skin_patcher",
@@ -16,6 +17,7 @@ license = "MIT OR Apache-2.0"
 [workspace.dependencies]
 oppw4-rdb = { path = "crates/oppw4-rdb" }
 oppw4-plugin-api = { path = "crates/oppw4-plugin-api" }
+oppw4-hooks = { path = "crates/oppw4-hooks" }
 tracing = "0.1"
 tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }

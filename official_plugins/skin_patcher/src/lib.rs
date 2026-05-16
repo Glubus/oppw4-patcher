@@ -1,6 +1,11 @@
 use oppw4_plugin_api::{cstring_lossy, Oppw4PluginApi, OPPW4_PLUGIN_API_VERSION};
 
-const LEGACY_NAME_HASH_CATALOG_ZIP: &[u8] =
+mod ffi;
+mod log;
+mod mods;
+mod runtime;
+
+pub(crate) const LEGACY_NAME_HASH_CATALOG_ZIP: &[u8] =
     include_bytes!("../../../resources/name_hash_catalog.zip");
 
 #[no_mangle]
@@ -12,13 +17,14 @@ pub unsafe extern "system" fn oppw4_plugin_init(api: *const Oppw4PluginApi) -> i
         return -2;
     }
 
+    log::initialize(api);
     let plugin_id = cstring_lossy("skin_patcher");
     let message = cstring_lossy(format!(
         "skin_patcher plugin initialized legacy_hash_catalog_zip_bytes={}",
         LEGACY_NAME_HASH_CATALOG_ZIP.len()
     ));
     api.log_line(&plugin_id, &message);
-    0
+    runtime::initialize(api)
 }
 
 #[cfg(test)]

@@ -10,3 +10,5 @@ name = "skin_patcher"
 
 [dependencies]
 oppw4-plugin-api.workspace = true
+oppw4-rdb.workspace = true
+zip.workspace = true

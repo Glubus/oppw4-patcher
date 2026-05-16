@@ -3,7 +3,7 @@ use std::{
     ptr,
 };
 
-pub const OPPW4_PLUGIN_API_VERSION: u32 = 3;
+pub const OPPW4_PLUGIN_API_VERSION: u32 = 4;
 pub const OPPW4_PLUGIN_INIT_SYMBOL: &[u8] = b"oppw4_plugin_init\0";
 
 pub type PluginInitFn = unsafe extern "system" fn(api: *const Oppw4PluginApi) -> i32;
@@ -17,6 +17,25 @@ pub type HostRegisterVirtualReplacementFn = unsafe extern "system" fn(
 ) -> i32;
 pub type HostCommitVirtualReplacementsFn =
     unsafe extern "system" fn(host_context: *mut c_void, plugin_id: *const c_char) -> i32;
+pub type HostModuleBaseFn = unsafe extern "system" fn(host_context: *mut c_void) -> usize;
+pub type HostReadMemoryFn = unsafe extern "system" fn(
+    host_context: *mut c_void,
+    address: usize,
+    out: *mut u8,
+    len: usize,
+) -> i32;
+pub type HostWriteMemoryFn = unsafe extern "system" fn(
+    host_context: *mut c_void,
+    address: usize,
+    bytes: *const u8,
+    len: usize,
+) -> i32;
+pub type HostScanMemoryFn = unsafe extern "system" fn(
+    host_context: *mut c_void,
+    pattern: *const u8,
+    mask: *const u8,
+    len: usize,
+) -> usize;
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -24,10 +43,16 @@ pub struct Oppw4PluginApi {
     pub version: u32,
     pub host_context: *mut c_void,
     pub game_root_utf8: *const c_char,
+    pub plugin_root_utf8: *const c_char,
+    pub plugin_mods_root_utf8: *const c_char,
     pub log: Option<HostLogFn>,
     pub clear_virtual_replacements: Option<HostClearVirtualReplacementsFn>,
     pub register_virtual_replacement: Option<HostRegisterVirtualReplacementFn>,
     pub commit_virtual_replacements: Option<HostCommitVirtualReplacementsFn>,
+    pub module_base: Option<HostModuleBaseFn>,
+    pub read_memory: Option<HostReadMemoryFn>,
+    pub write_memory: Option<HostWriteMemoryFn>,
+    pub scan_memory: Option<HostScanMemoryFn>,
 }
 
 #[repr(C)]
@@ -118,6 +143,44 @@ impl Oppw4PluginApi {
         };
         unsafe { commit(self.host_context, plugin_id.as_ptr()) }
     }
+
+    pub fn module_base(&self) -> usize {
+        let Some(module_base) = self.module_base else {
+            return 0;
+        };
+        unsafe { module_base(self.host_context) }
+    }
+
+    pub fn read_memory(&self, address: usize, out: &mut [u8]) -> i32 {
+        let Some(read) = self.read_memory else {
+            return -1;
+        };
+        unsafe { read(self.host_context, address, out.as_mut_ptr(), out.len()) }
+    }
+
+    pub fn write_memory(&self, address: usize, bytes: &[u8]) -> i32 {
+        let Some(write) = self.write_memory else {
+            return -1;
+        };
+        unsafe { write(self.host_context, address, bytes.as_ptr(), bytes.len()) }
+    }
+
+    pub fn scan_memory(&self, pattern: &[u8], mask: &[u8]) -> usize {
+        if pattern.len() != mask.len() {
+            return 0;
+        }
+        let Some(scan) = self.scan_memory else {
+            return 0;
+        };
+        unsafe {
+            scan(
+                self.host_context,
+                pattern.as_ptr(),
+                mask.as_ptr(),
+                pattern.len(),
+            )
+        }
+    }
 }
 
 pub fn cstring_lossy(value: impl AsRef<str>) -> CString {
@@ -140,10 +203,16 @@ pub const fn null_api() -> Oppw4PluginApi {
         version: OPPW4_PLUGIN_API_VERSION,
         host_context: ptr::null_mut(),
         game_root_utf8: ptr::null(),
+        plugin_root_utf8: ptr::null(),
+        plugin_mods_root_utf8: ptr::null(),
         log: None,
         clear_virtual_replacements: None,
         register_virtual_replacement: None,
         commit_virtual_replacements: None,
+        module_base: None,
+        read_memory: None,
+        write_memory: None,
+        scan_memory: None,
     }
 }
 
@@ -176,10 +245,16 @@ mod tests {
             version: OPPW4_PLUGIN_API_VERSION,
             host_context: ptr::null_mut(),
             game_root_utf8: ptr::null(),
+            plugin_root_utf8: ptr::null(),
+            plugin_mods_root_utf8: ptr::null(),
             log: Some(capture_log),
             clear_virtual_replacements: None,
             register_virtual_replacement: None,
             commit_virtual_replacements: None,
+            module_base: None,
+            read_memory: None,
+            write_memory: None,
+            scan_memory: None,
         };
         let plugin = cstring_lossy("skin_patcher");
         let message = cstring_lossy("hello");

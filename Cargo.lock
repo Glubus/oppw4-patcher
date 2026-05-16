@@ -233,6 +233,8 @@ name = "oppw4-skin-patcher-plugin"
 version = "0.1.0"
 dependencies = [
  "oppw4-plugin-api",
+ "oppw4-rdb",
+ "zip",
 ]
 
 [[package]]

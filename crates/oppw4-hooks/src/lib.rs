@@ -1,5 +1,6 @@
 mod global;
 mod log;
+mod memory;
 mod win;
 
 pub use global::{
@@ -7,3 +8,4 @@ pub use global::{
     publish_replacements, register_virtual_replacement,
 };
 pub use log::set_logger;
+pub use memory::{module_base, read_memory, scan_memory, write_memory};

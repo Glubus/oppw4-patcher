@@ -9,6 +9,8 @@ use crate::log;
 pub(crate) struct PluginManifest {
     pub(crate) id: String,
     pub(crate) version: String,
+    pub(crate) root: PathBuf,
+    pub(crate) mods_root: PathBuf,
     pub(crate) entry_path: PathBuf,
     pub(crate) log_root: PathBuf,
 }
@@ -66,6 +68,8 @@ impl PluginManifest {
         Ok(Self {
             id,
             version,
+            root: plugin_dir.to_path_buf(),
+            mods_root: plugin_dir.join("mods"),
             entry_path: entry_file_path(plugin_dir, entry)?,
             log_root: plugin_dir.join("logs"),
         })
@@ -123,6 +127,8 @@ mod tests {
 
         assert_eq!(manifest.id, "skin_patcher");
         assert_eq!(manifest.version, "0.1.0");
+        assert_eq!(manifest.root, root);
+        assert_eq!(manifest.mods_root, root.join("mods"));
         assert_eq!(manifest.entry_path, root.join("skin_patcher.dll"));
         assert_eq!(manifest.log_root, root.join("logs"));
     }

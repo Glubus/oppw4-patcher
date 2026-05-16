@@ -47,6 +47,7 @@ fn load_plugins(game_root: &Path, plugin_root: &Path) {
 
 unsafe fn load_plugin(game_root: &Path, manifest: &PluginManifest) -> bool {
     logs::register(manifest.id.clone(), manifest.log_root.clone());
+    let _ = fs::create_dir_all(&manifest.mods_root);
 
     let wide = path_to_wide(&manifest.entry_path);
     let module = win::load_library(&wide);
@@ -71,7 +72,14 @@ unsafe fn load_plugin(game_root: &Path, manifest: &PluginManifest) -> bool {
 
     let init: PluginInitFn = std::mem::transmute(proc);
     let game_root_utf8 = ffi::cstring_lossy(&game_root.to_string_lossy());
-    let api = ffi::build_api(game_root, &game_root_utf8);
+    let plugin_root_utf8 = ffi::cstring_lossy(&manifest.root.to_string_lossy());
+    let plugin_mods_root_utf8 = ffi::cstring_lossy(&manifest.mods_root.to_string_lossy());
+    let api = ffi::build_api(
+        game_root,
+        &game_root_utf8,
+        &plugin_root_utf8,
+        &plugin_mods_root_utf8,
+    );
     let result = init(&api);
     if result != 0 {
         log::write_line(format!(

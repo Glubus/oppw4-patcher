@@ -5,6 +5,7 @@ members = [
     "crates/oppw4-hooks",
     "crates/oppw4-plugin-api",
     "crates/oppw4-rdb",
+    "crates/plugins_supports",
     "official_plugins/skin_patcher",
 ]
 resolver = "2"
@@ -18,6 +19,7 @@ license = "MIT OR Apache-2.0"
 oppw4-rdb = { path = "crates/oppw4-rdb" }
 oppw4-plugin-api = { path = "crates/oppw4-plugin-api" }
 oppw4-hooks = { path = "crates/oppw4-hooks" }
+plugins_supports = { path = "crates/plugins_supports" }
 tracing = "0.1"
 tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }

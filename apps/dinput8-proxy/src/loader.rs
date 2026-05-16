@@ -1,6 +1,6 @@
 use std::{ffi::c_void, path::PathBuf, sync::Once};
 
-use crate::{log, plugin_host, win};
+use crate::{log, win};
 
 static INIT: Once = Once::new();
 
@@ -20,12 +20,17 @@ fn initialize_loader_thread(base_dir: PathBuf) {
     log::write_line("loader init started");
     oppw4_hooks::set_logger(write_hook_log);
     oppw4_hooks::install_main_module_hooks();
+    plugins_supports::set_logger(write_plugin_log);
     let paths = LoaderPaths::from_base_dir(base_dir);
     log_loader_paths(&paths);
-    plugin_host::initialize(&paths.game_root, &paths.plugin_root);
+    plugins_supports::initialize(&paths.game_root, &paths.plugin_root);
 }
 
 fn write_hook_log(message: String) {
+    log::write_line(message);
+}
+
+fn write_plugin_log(message: String) {
     log::write_line(message);
 }
 

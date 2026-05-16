@@ -72,14 +72,6 @@ pub fn module_directory(module: Hmodule) -> Option<PathBuf> {
     path.parent().map(PathBuf::from)
 }
 
-pub fn load_library(path: &[u16]) -> Hmodule {
-    unsafe { LoadLibraryW(path.as_ptr()) }
-}
-
-pub unsafe fn get_proc_address(module: Hmodule, name: *const c_char) -> *mut c_void {
-    GetProcAddress(module, name)
-}
-
 unsafe fn load_system_dinput8_proc(name: &'static [u8]) -> *mut c_void {
     let module = system_dinput8_module();
     let proc = GetProcAddress(module, name.as_ptr().cast());

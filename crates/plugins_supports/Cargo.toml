@@ -1,9 +1,10 @@
 [package]
-name = "oppw4-hooks"
+name = "plugins_supports"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [dependencies]
+oppw4-hooks.workspace = true
 oppw4-plugin-api.workspace = true
-oppw4-rdb.workspace = true
+toml.workspace = true

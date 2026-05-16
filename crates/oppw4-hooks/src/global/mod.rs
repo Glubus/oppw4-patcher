@@ -12,6 +12,7 @@ use std::{
 
 mod handles;
 mod rdb_tracker;
+mod replacement_registry;
 mod types;
 
 use oppw4_rdb::{ReplacementSource, VirtualHandle, VirtualManager, VirtualReplacement};
@@ -43,6 +44,27 @@ pub fn publish_replacements(replacements: Vec<VirtualReplacement>) {
     };
     *guard = Some(VirtualManager::new(replacements));
     log::write_line(format!("virtual runtime published: {count} replacements"));
+}
+
+pub unsafe fn clear_virtual_replacements(plugin_id: *const std::ffi::c_char) -> i32 {
+    replacement_registry::clear(plugin_id)
+}
+
+pub unsafe fn register_virtual_replacement(
+    replacement: *const oppw4_plugin_api::Oppw4VirtualReplacement,
+) -> i32 {
+    replacement_registry::register(replacement)
+}
+
+pub unsafe fn commit_virtual_replacements(plugin_id: *const std::ffi::c_char) -> i32 {
+    match replacement_registry::take_all(plugin_id) {
+        Ok(replacements) => {
+            let count = replacements.len();
+            publish_replacements(replacements);
+            count.min(i32::MAX as usize) as i32
+        }
+        Err(code) => code,
+    }
 }
 
 pub fn install_main_module_hooks() {

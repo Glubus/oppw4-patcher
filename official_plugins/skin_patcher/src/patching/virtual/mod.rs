@@ -8,6 +8,6 @@ pub use handles::{VirtualHandle, VirtualHandleTable};
 pub use manager::VirtualManager;
 pub use table::{
     assign_virtual_bin_offsets, attach_mod_file_sizes, build_virtualization_table,
-    build_virtualization_table_from_assets, ReplacementMode, VirtualReplacement,
-    VirtualReplacementFile,
+    build_virtualization_table_from_assets,
 };
+pub use table::{ReplacementMode, VirtualReplacement, VirtualReplacementFile};

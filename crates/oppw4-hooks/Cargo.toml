@@ -6,4 +6,3 @@ license.workspace = true
 
 [dependencies]
 oppw4-plugin-api.workspace = true
-oppw4-rdb.workspace = true

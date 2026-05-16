@@ -1,11 +1,11 @@
 use std::{
-    ffi::{c_char, c_void, CString},
+    ffi::{c_void, CString},
     path::{Path, PathBuf},
 };
 
 use oppw4_plugin_api::{
-    optional_cstr, HostPluginModZipVisitorFn, Oppw4LogEntry, Oppw4PluginApi,
-    Oppw4VirtualReplacement, OPPW4_PLUGIN_API_VERSION,
+    optional_cstr, HostPluginModZipVisitorFn, Oppw4FileProvider, Oppw4LogEntry, Oppw4PluginApi,
+    OPPW4_PLUGIN_API_VERSION,
 };
 
 use super::{logs, mods};
@@ -35,14 +35,12 @@ pub(crate) fn build_api(
         plugin_root_utf8: plugin_root_utf8.as_ptr(),
         plugin_mods_root_utf8: plugin_mods_root_utf8.as_ptr(),
         log: Some(host_log),
-        clear_virtual_replacements: Some(host_clear_virtual_replacements),
-        register_virtual_replacement: Some(host_register_virtual_replacement),
-        commit_virtual_replacements: Some(host_commit_virtual_replacements),
         module_base: Some(host_module_base),
         read_memory: Some(host_read_memory),
         write_memory: Some(host_write_memory),
         scan_memory: Some(host_scan_memory),
         for_each_plugin_mod_zip: Some(host_for_each_plugin_mod_zip),
+        register_file_provider: Some(host_register_file_provider),
     }
 }
 
@@ -69,29 +67,15 @@ unsafe extern "system" fn host_log(_host_context: *mut c_void, entry: *const Opp
     logs::write(plugin_id, message);
 }
 
-unsafe extern "system" fn host_clear_virtual_replacements(
-    _host_context: *mut c_void,
-    plugin_id: *const c_char,
-) -> i32 {
-    oppw4_hooks::clear_virtual_replacements(plugin_id)
-}
-
-unsafe extern "system" fn host_register_virtual_replacement(
-    _host_context: *mut c_void,
-    replacement: *const Oppw4VirtualReplacement,
-) -> i32 {
-    oppw4_hooks::register_virtual_replacement(replacement)
-}
-
-unsafe extern "system" fn host_commit_virtual_replacements(
-    _host_context: *mut c_void,
-    plugin_id: *const c_char,
-) -> i32 {
-    oppw4_hooks::commit_virtual_replacements(plugin_id)
-}
-
 unsafe extern "system" fn host_module_base(_host_context: *mut c_void) -> usize {
     oppw4_hooks::module_base()
+}
+
+unsafe extern "system" fn host_register_file_provider(
+    _host_context: *mut c_void,
+    provider: *const Oppw4FileProvider,
+) -> i32 {
+    oppw4_hooks::register_file_provider(provider)
 }
 
 unsafe extern "system" fn host_read_memory(

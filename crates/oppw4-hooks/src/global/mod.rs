@@ -1,70 +1,96 @@
 use std::{
-    collections::HashMap,
-    io::SeekFrom,
+    ffi::{c_char, c_void, CStr},
     mem::size_of,
     path::Path,
     sync::{
         atomic::{AtomicUsize, Ordering},
         Mutex, OnceLock,
     },
-    time::{SystemTime, UNIX_EPOCH},
 };
 
 mod handles;
 mod rdb_tracker;
-mod replacement_registry;
 mod types;
 
-use oppw4_rdb::{ReplacementSource, VirtualHandle, VirtualManager, VirtualReplacement};
+use oppw4_plugin_api::{
+    Oppw4FileProvider, Oppw4ProviderCloseFn, Oppw4ProviderFileTimeFn, Oppw4ProviderOpenPathFn,
+    Oppw4ProviderPatchReadFn, Oppw4ProviderReadFn, Oppw4ProviderSeekFn, Oppw4ProviderSizeFn,
+    Oppw4ReadKind,
+};
 
 use crate::{log, win};
-use handles::{fake_to_handle, returned_virtual_handle, virtual_handle_for_os_handle};
+use handles::{
+    fake_to_handle, returned_virtual_handle, virtual_handle_for_os_handle, VirtualHandle,
+};
 use rdb_tracker::{RdbTracker, TrackedFileKind, TrackedRead};
 use types::*;
 
 static ORIGINALS: OnceLock<OriginalFunctions> = OnceLock::new();
-// TODO(plugin-api): this RDB replacement state is still legacy skin_patcher logic.
-// Move the replacement builder into official_plugins/skin_patcher, then keep only
-// a generic rule registry here for global CreateFileW/ReadFile dispatch.
-static RUNTIME: OnceLock<Mutex<Option<VirtualManager>>> = OnceLock::new();
+static FILE_PROVIDER: OnceLock<Mutex<Option<FileProvider>>> = OnceLock::new();
 static RDB_TRACKER: OnceLock<Mutex<RdbTracker>> = OnceLock::new();
-static VIRTUAL_SOURCES: OnceLock<Mutex<HashMap<u64, ReplacementSource>>> = OnceLock::new();
 static CREATE_FILE_LOGS: AtomicUsize = AtomicUsize::new(0);
-static DATA_HIT_LOGS: AtomicUsize = AtomicUsize::new(0);
 static INDEX_PATCH_LOGS: AtomicUsize = AtomicUsize::new(0);
 static OPEN_VIRTUAL_LOGS: AtomicUsize = AtomicUsize::new(0);
 static VIRTUAL_IO_LOGS: AtomicUsize = AtomicUsize::new(0);
 
-pub fn publish_replacements(replacements: Vec<VirtualReplacement>) {
-    let count = replacements.len();
-    let runtime = RUNTIME.get_or_init(|| Mutex::new(None));
-    let Ok(mut guard) = runtime.lock() else {
-        log::write_line("virtual runtime lock poisoned");
-        return;
+#[derive(Clone, Copy)]
+struct FileProvider {
+    provider_context: usize,
+    open_path: Oppw4ProviderOpenPathFn,
+    read: Oppw4ProviderReadFn,
+    close: Oppw4ProviderCloseFn,
+    size: Oppw4ProviderSizeFn,
+    file_time: Option<Oppw4ProviderFileTimeFn>,
+    seek: Oppw4ProviderSeekFn,
+    patch_read: Option<Oppw4ProviderPatchReadFn>,
+}
+
+pub unsafe fn register_file_provider(provider: *const Oppw4FileProvider) -> i32 {
+    let Some(provider) = provider.as_ref() else {
+        return -1;
     };
-    *guard = Some(VirtualManager::new(replacements));
-    log::write_line(format!("virtual runtime published: {count} replacements"));
+    let (Some(open_path), Some(read), Some(close), Some(size), Some(seek)) = (
+        provider.open_path,
+        provider.read,
+        provider.close,
+        provider.size,
+        provider.seek,
+    ) else {
+        return -2;
+    };
+    let plugin_id = fixed_plugin_id(provider.plugin_id);
+    let registry = FILE_PROVIDER.get_or_init(|| Mutex::new(None));
+    let Ok(mut guard) = registry.lock() else {
+        return -3;
+    };
+    *guard = Some(FileProvider {
+        provider_context: provider.provider_context as usize,
+        open_path,
+        read,
+        close,
+        size,
+        file_time: provider.file_time,
+        seek,
+        patch_read: provider.patch_read,
+    });
+    log::write_line(format!(
+        "file provider registered: {}",
+        String::from_utf8_lossy(&plugin_id)
+            .trim_end_matches('\0')
+            .to_string()
+    ));
+    0
 }
 
-pub unsafe fn clear_virtual_replacements(plugin_id: *const std::ffi::c_char) -> i32 {
-    replacement_registry::clear(plugin_id)
-}
-
-pub unsafe fn register_virtual_replacement(
-    replacement: *const oppw4_plugin_api::Oppw4VirtualReplacement,
-) -> i32 {
-    replacement_registry::register(replacement)
-}
-
-pub unsafe fn commit_virtual_replacements(plugin_id: *const std::ffi::c_char) -> i32 {
-    match replacement_registry::take_all(plugin_id) {
-        Ok(replacements) => {
-            let count = replacements.len();
-            publish_replacements(replacements);
-            count.min(i32::MAX as usize) as i32
-        }
-        Err(code) => code,
+unsafe fn fixed_plugin_id(plugin_id: *const c_char) -> [u8; 64] {
+    let mut out = [0u8; 64];
+    if plugin_id.is_null() {
+        return out;
     }
+    let bytes = CStr::from_ptr(plugin_id).to_bytes();
+    let len = bytes.len().min(out.len().saturating_sub(1));
+    out[..len].copy_from_slice(&bytes[..len]);
+    out
 }
 
 pub fn install_main_module_hooks() {
@@ -383,33 +409,26 @@ unsafe extern "system" fn hooked_set_file_pointer_ex(
 }
 
 fn open_virtual_fake_handle(path: &str) -> Option<Handle> {
-    let (virtual_handle, replacement) = with_manager(|manager| {
-        let (virtual_handle, replacement) = open_virtual_handle_for_path(manager, path)?;
-        Some((virtual_handle, replacement))
-    })
-    .flatten()?;
-    let handle = returned_virtual_handle(virtual_handle);
-    remember_virtual_source(virtual_handle, replacement.source.clone());
-    log_open_virtual(path, handle, &replacement);
-    Some(handle)
-}
-
-fn open_virtual_handle_for_path(
-    manager: &mut VirtualManager,
-    path: &str,
-) -> Option<(VirtualHandle, VirtualReplacement)> {
-    manager
-        .open_by_path_fragment_with_replacement(
-            Path::new(path).file_name()?.to_string_lossy().as_ref(),
+    let path = std::ffi::CString::new(path.as_bytes()).ok()?;
+    let mut raw_handle = 0u64;
+    let opened = with_provider(|provider| unsafe {
+        (provider.open_path)(
+            provider.provider_context as *mut c_void,
+            path.as_ptr(),
+            &mut raw_handle,
         )
-        .ok()
-        .flatten()
-        .or_else(|| {
-            manager
-                .open_by_path_fragment_with_replacement(path)
-                .ok()
-                .flatten()
-        })
+    })?;
+    if opened <= 0 || raw_handle == 0 {
+        return None;
+    }
+    let virtual_handle = VirtualHandle::from_raw(raw_handle);
+    let handle = returned_virtual_handle(virtual_handle);
+    log_open_virtual(
+        path.as_c_str().to_string_lossy().as_ref(),
+        handle,
+        virtual_handle,
+    );
+    Some(handle)
 }
 
 unsafe fn read_virtual_file(
@@ -441,29 +460,34 @@ unsafe fn read_virtual_file(
         }
         Some(offset as u64)
     };
-    let buffer = std::slice::from_raw_parts_mut(buffer.cast::<u8>(), bytes_to_read as usize);
-    let Some(result) = with_manager(|manager| {
-        if let Some(offset) = requested_offset {
-            if manager.seek(handle, SeekFrom::Start(offset)).is_err() {
-                return None;
-            }
-        }
-        manager.read(handle, buffer).ok()
-    }) else {
+    let Some(mut read) = with_provider(|provider| {
+        let mut read = 0u32;
+        let result = unsafe {
+            (provider.read)(
+                provider.provider_context as *mut c_void,
+                handle.as_raw(),
+                buffer.cast(),
+                bytes_to_read,
+                requested_offset.map(|offset| offset as i64).unwrap_or(-1),
+                &mut read,
+            )
+        };
+        (result > 0).then_some(read)
+    })
+    .flatten() else {
         return 0;
     };
-    let Some(read) = result else {
-        return 0;
-    };
+    read = read.min(bytes_to_read);
+    let buffer = std::slice::from_raw_parts_mut(buffer.cast::<u8>(), read as usize);
     if !bytes_read.is_null() {
-        *bytes_read = read as Dword;
+        *bytes_read = read;
     }
     let h_event = if overlapped.is_null() {
         0
     } else {
         read_overlapped_event(overlapped)
     };
-    let preview_len = read.min(16);
+    let preview_len = (read as usize).min(16);
     let preview = hex_preview(&buffer[..preview_len]);
     log_virtual_io(format_args!(
         "Virtual READ handle=0x{:x} offset={} request=0x{:x} read=0x{:x} hEvent=0x{h_event:x} first={preview}",
@@ -477,22 +501,13 @@ unsafe fn read_virtual_file(
     1
 }
 
-fn log_open_virtual(path: &str, returned_handle: Handle, replacement: &VirtualReplacement) {
+fn log_open_virtual(path: &str, returned_handle: Handle, handle: VirtualHandle) {
     let index = OPEN_VIRTUAL_LOGS.fetch_add(1, Ordering::Relaxed);
     if index < 80 {
-        let prefix_len = replacement
-            .virtual_prefix
-            .as_ref()
-            .map(|prefix| prefix.len())
-            .unwrap_or_default();
         log::write_line(format!(
-            "Open virtual {path} handle=0x{:x} file={} mode={:?} hash=0x{:08x} prefix=0x{prefix_len:x} mod_size=0x{:x} source={}",
+            "Open virtual {path} returned=0x{:x} provider_handle=0x{:x}",
             returned_handle as usize,
-            replacement.file_name,
-            replacement.mode,
-            replacement.hash,
-            replacement.mod_size.unwrap_or_default(),
-            replacement.source.display_name()
+            handle.as_raw()
         ));
     } else if index == 80 {
         log::write_line("Open virtual logs suppressed".to_string());
@@ -500,13 +515,12 @@ fn log_open_virtual(path: &str, returned_handle: Handle, replacement: &VirtualRe
 }
 
 fn close_virtual_file(handle: VirtualHandle) -> Bool {
-    let closed = with_manager(|manager| manager.close(handle))
-        .filter(|closed| *closed)
-        .map(|_| 1)
-        .unwrap_or(0);
-    if closed != 0 {
-        forget_virtual_source(handle);
-    }
+    let closed = with_provider(|provider| unsafe {
+        (provider.close)(provider.provider_context as *mut c_void, handle.as_raw())
+    })
+    .filter(|closed| *closed > 0)
+    .map(|_| 1)
+    .unwrap_or(0);
     log_virtual_io(format_args!(
         "Virtual CLOSE handle=0x{:x} closed={closed}",
         handle.as_raw()
@@ -518,12 +532,19 @@ unsafe fn get_virtual_file_size(handle: VirtualHandle, size: *mut LargeInteger) 
     if size.is_null() {
         return 0;
     }
-    let Some(result) = with_manager(|manager| manager.size(handle).ok()) else {
+    let mut file_size = 0u64;
+    let Some(result) = with_provider(|provider| unsafe {
+        (provider.size)(
+            provider.provider_context as *mut c_void,
+            handle.as_raw(),
+            &mut file_size,
+        )
+    }) else {
         return 0;
     };
-    let Some(file_size) = result else {
+    if result <= 0 {
         return 0;
-    };
+    }
     *size = file_size as LargeInteger;
     log_virtual_io(format_args!(
         "Virtual SIZE handle=0x{:x} size=0x{file_size:x}",
@@ -565,23 +586,23 @@ unsafe fn get_virtual_file_time(
 }
 
 fn virtual_file_times(handle: VirtualHandle) -> Option<(FileTime, FileTime, FileTime)> {
-    let source = virtual_source(handle)?;
-    let write = source.modified_time().and_then(system_time_to_file_time)?;
+    let mut raw = 0u64;
+    let result = with_provider(|provider| unsafe {
+        let file_time = provider.file_time?;
+        Some(file_time(
+            provider.provider_context as *mut c_void,
+            handle.as_raw(),
+            &mut raw,
+        ))
+    })??;
+    if result <= 0 {
+        return None;
+    }
+    let write = FileTime {
+        low_date_time: raw as u32,
+        high_date_time: (raw >> 32) as u32,
+    };
     Some((write, write, write))
-}
-
-fn system_time_to_file_time(time: SystemTime) -> Option<FileTime> {
-    let duration = time.duration_since(UNIX_EPOCH).ok()?;
-    let seconds = duration
-        .as_secs()
-        .checked_add(WINDOWS_TO_UNIX_EPOCH_SECONDS)?;
-    let ticks = seconds
-        .checked_mul(FILETIME_TICKS_PER_SECOND)?
-        .checked_add((duration.subsec_nanos() / 100) as u64)?;
-    Some(FileTime {
-        low_date_time: ticks as u32,
-        high_date_time: (ticks >> 32) as u32,
-    })
 }
 
 unsafe fn write_file_time(target: Lpvoid, value: FileTime) {
@@ -596,18 +617,21 @@ unsafe fn seek_virtual_file(
     new_pointer: *mut LargeInteger,
     move_method: Dword,
 ) -> Bool {
-    let position = match move_method {
-        0 => SeekFrom::Start(distance.max(0) as u64),
-        1 => SeekFrom::Current(distance),
-        2 => SeekFrom::End(distance),
-        _ => return 0,
-    };
-    let Some(result) = with_manager(|manager| manager.seek(handle, position).ok()) else {
+    let mut position = 0u64;
+    let Some(result) = with_provider(|provider| unsafe {
+        (provider.seek)(
+            provider.provider_context as *mut c_void,
+            handle.as_raw(),
+            distance,
+            move_method,
+            &mut position,
+        )
+    }) else {
         return 0;
     };
-    let Some(position) = result else {
+    if result <= 0 {
         return 0;
-    };
+    }
     if !new_pointer.is_null() {
         *new_pointer = position as LargeInteger;
     }
@@ -618,33 +642,11 @@ unsafe fn seek_virtual_file(
     1
 }
 
-fn with_manager<T>(action: impl FnOnce(&mut VirtualManager) -> T) -> Option<T> {
-    let runtime = RUNTIME.get()?;
-    let mut guard = runtime.lock().ok()?;
-    let manager = guard.as_mut()?;
-    Some(action(manager))
-}
-
-fn remember_virtual_source(handle: VirtualHandle, source: ReplacementSource) {
-    let sources = VIRTUAL_SOURCES.get_or_init(|| Mutex::new(HashMap::new()));
-    if let Ok(mut guard) = sources.lock() {
-        guard.insert(handle.as_raw(), source);
-    }
-}
-
-fn forget_virtual_source(handle: VirtualHandle) {
-    let Some(sources) = VIRTUAL_SOURCES.get() else {
-        return;
-    };
-    if let Ok(mut guard) = sources.lock() {
-        guard.remove(&handle.as_raw());
-    }
-}
-
-fn virtual_source(handle: VirtualHandle) -> Option<ReplacementSource> {
-    let sources = VIRTUAL_SOURCES.get()?;
-    let guard = sources.lock().ok()?;
-    guard.get(&handle.as_raw()).cloned()
+fn with_provider<T>(action: impl FnOnce(&FileProvider) -> T) -> Option<T> {
+    let provider = FILE_PROVIDER.get()?;
+    let guard = provider.lock().ok()?;
+    let provider = guard.as_ref()?;
+    Some(action(provider))
 }
 
 unsafe fn tracked_read(
@@ -695,17 +697,46 @@ unsafe fn patch_tracked_read(
     let buffer = std::slice::from_raw_parts_mut(buffer.cast::<u8>(), actual_read);
     match tracked.kind {
         TrackedFileKind::Index => {
-            patch_index_external_flags(&tracked.archive_name, offset as u64, buffer);
+            dispatch_patch_read(
+                &tracked.archive_name,
+                Oppw4ReadKind::RdbIndex,
+                offset as u64,
+                buffer,
+            );
         }
         TrackedFileKind::Data => {
-            log_data_read_hits(&tracked.archive_name, offset as u64, buffer.len());
+            dispatch_patch_read(
+                &tracked.archive_name,
+                Oppw4ReadKind::RdbData,
+                offset as u64,
+                buffer,
+            );
         }
     }
 }
 
-fn patch_index_external_flags(archive_name: &str, read_offset: u64, buffer: &mut [u8]) {
-    let patched = with_manager(|manager| {
-        manager.patch_archive_index_external_flags(archive_name, read_offset, buffer)
+fn dispatch_patch_read(
+    archive_name: &str,
+    read_kind: Oppw4ReadKind,
+    read_offset: u64,
+    buffer: &mut [u8],
+) {
+    let archive_label = archive_name.to_string();
+    let Ok(archive_name) = std::ffi::CString::new(archive_name.as_bytes()) else {
+        return;
+    };
+    let patched = with_provider(|provider| unsafe {
+        let Some(patch_read) = provider.patch_read else {
+            return 0;
+        };
+        patch_read(
+            provider.provider_context as *mut c_void,
+            archive_name.as_ptr(),
+            read_kind,
+            read_offset,
+            buffer.as_mut_ptr(),
+            buffer.len(),
+        )
     })
     .unwrap_or_default();
     if patched == 0 || INDEX_PATCH_LOGS.load(Ordering::Relaxed) >= 80 {
@@ -714,7 +745,8 @@ fn patch_index_external_flags(archive_name: &str, read_offset: u64, buffer: &mut
     let index = INDEX_PATCH_LOGS.fetch_add(1, Ordering::Relaxed);
     if index < 80 {
         log::write_line(format!(
-            "RDB INDEX EXTERNAL {archive_name}: read=0x{read_offset:x}+0x{:x} fields={patched}",
+            "Provider PATCH {:?} {archive_label}: read=0x{read_offset:x}+0x{:x} result={patched}",
+            read_kind,
             buffer.len()
         ));
     }
@@ -737,39 +769,6 @@ fn log_create_file_candidate(path: &str, desired_access: Dword, creation_disposi
     if index < 320 {
         log::write_line(format!(
             "CreateFileW path={path} access=0x{desired_access:x} disposition=0x{creation_disposition:x}"
-        ));
-    }
-}
-
-fn log_data_read_hits(archive_name: &str, read_offset: u64, read_len: usize) {
-    if DATA_HIT_LOGS.load(Ordering::Relaxed) >= 240 {
-        return;
-    }
-    let hits = with_manager(|manager| {
-        manager
-            .data_read_hits(archive_name, read_offset, read_len)
-            .into_iter()
-            .map(|replacement| {
-                (
-                    replacement.file_name.clone(),
-                    replacement.hash,
-                    replacement.original_bin_offset.unwrap_or_default(),
-                    replacement.mod_size.unwrap_or_default(),
-                )
-            })
-            .collect::<Vec<_>>()
-    })
-    .unwrap_or_default();
-    if hits.is_empty() {
-        return;
-    }
-    for (file_name, hash, original_offset, mod_size) in hits {
-        let index = DATA_HIT_LOGS.fetch_add(1, Ordering::Relaxed);
-        if index >= 240 {
-            return;
-        }
-        log::write_line(format!(
-            "RDB BIN HIT {archive_name}: read=0x{read_offset:x}+0x{read_len:x} file={file_name} hash=0x{hash:08x} bin_offset=0x{original_offset:x} mod_size=0x{mod_size:x}"
         ));
     }
 }

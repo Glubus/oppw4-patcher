@@ -3,7 +3,7 @@ use std::{
     io::{Read, Seek, SeekFrom},
 };
 
-use crate::{ReadSeek, VirtualReplacement};
+use crate::patching::{ReadSeek, VirtualReplacement};
 
 pub struct VirtualFile {
     prefix: Vec<u8>,

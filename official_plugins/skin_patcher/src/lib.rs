@@ -3,6 +3,7 @@ use oppw4_plugin_api::{cstring_lossy, Oppw4PluginApi, OPPW4_PLUGIN_API_VERSION};
 mod ffi;
 mod log;
 mod mods;
+mod patching;
 mod runtime;
 
 pub(crate) const LEGACY_NAME_HASH_CATALOG_ZIP: &[u8] =

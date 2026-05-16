@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use oppw4_rdb::{ModAsset, ReplacementSource};
+use crate::patching::{ModAsset, ReplacementSource};
 
 pub struct ModRepository {
     root: PathBuf,

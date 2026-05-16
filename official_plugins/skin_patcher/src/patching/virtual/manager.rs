@@ -1,6 +1,6 @@
 use std::io::SeekFrom;
 
-use crate::{VirtualHandle, VirtualHandleTable, VirtualReplacement};
+use crate::patching::{VirtualHandle, VirtualHandleTable, VirtualReplacement};
 
 #[derive(Debug)]
 pub struct VirtualManager {
@@ -354,8 +354,8 @@ mod tests {
         VirtualReplacement {
             archive_name: archive_name.to_string(),
             file_name: "modded.g1t".to_string(),
-            source: crate::ReplacementSource::File("modded.g1t".into()),
-            mode: crate::ReplacementMode::Virtual,
+            source: crate::patching::ReplacementSource::File("modded.g1t".into()),
+            mode: crate::patching::ReplacementMode::Virtual,
             mod_size: Some(0x1234),
             hash: 0x1234_5678,
             rdb_block_offset,

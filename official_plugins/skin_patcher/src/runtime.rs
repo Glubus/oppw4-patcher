@@ -7,7 +7,7 @@ use std::{
 
 use oppw4_plugin_api::{cstring_lossy, Oppw4PluginApi};
 
-use crate::{ffi, log, mods::ModRepository, LEGACY_NAME_HASH_CATALOG_ZIP};
+use crate::{ffi, log, mods::ModRepository, patching, LEGACY_NAME_HASH_CATALOG_ZIP};
 
 const ARCHIVES: [&str; 8] = [
     "CharacterEditor",
@@ -41,10 +41,11 @@ pub fn initialize(api: &Oppw4PluginApi) -> i32 {
     log::write_line(format!("plugin mod zips: {}", plugin_zip_paths.len()));
     let replacements = scan_known_archives(&paths, &catalog, plugin_zip_paths);
     let plugin_id = cstring_lossy("skin_patcher");
-    let registered = ffi::register_replacements(api, &plugin_id, &replacements);
+    let replacement_count = replacements.len();
+    let registered = ffi::register_replacements(api, &plugin_id, replacements);
     log::write_line(format!(
         "skin_patcher registered replacements result={registered} count={}",
-        replacements.len()
+        replacement_count
     ));
     if registered < 0 {
         registered
@@ -140,13 +141,13 @@ fn scan_known_archives(
     paths: &RuntimePaths,
     catalog: &[oppw4_rdb::NameHashEntry],
     plugin_zip_paths: Vec<PathBuf>,
-) -> Vec<oppw4_rdb::VirtualReplacement> {
+) -> Vec<patching::VirtualReplacement> {
     let mut replacements = Vec::new();
     let mods = ModRepository::with_zip_paths(paths.mods_root.clone(), plugin_zip_paths);
     for archive in ARCHIVES {
         replacements.extend(scan_archive(paths, &mods, archive, catalog));
     }
-    let mut attached = match oppw4_rdb::attach_mod_file_sizes(replacements) {
+    let mut attached = match patching::attach_mod_file_sizes(replacements) {
         Ok(replacements) => replacements,
         Err(error) => {
             log::write_line(format!("virtual table size attach failed: {error}"));
@@ -167,7 +168,7 @@ fn scan_known_archives(
         let Ok(metadata) = std::fs::metadata(&bin_path) else {
             continue;
         };
-        attached = oppw4_rdb::assign_virtual_bin_offsets(attached, archive, metadata.len());
+        attached = patching::assign_virtual_bin_offsets(attached, archive, metadata.len());
     }
     attached
 }
@@ -199,7 +200,7 @@ fn scan_archive(
     mods: &ModRepository,
     archive: &str,
     catalog: &[oppw4_rdb::NameHashEntry],
-) -> Vec<oppw4_rdb::VirtualReplacement> {
+) -> Vec<patching::VirtualReplacement> {
     let rdb_path = paths.rdb_root.join(format!("{archive}.rdb"));
     let assets = mods.archive_assets(archive);
     if assets.is_empty() {
@@ -228,7 +229,7 @@ fn scan_archive(
         "{archive}: files={} matched={} hash_missing={} unresolved={}",
         counts.total, counts.matched, counts.hash_missing, counts.unresolved_names
     ));
-    oppw4_rdb::build_virtualization_table_from_assets(&scan, &assets)
+    patching::build_virtualization_table_from_assets(&scan, &assets)
 }
 
 #[cfg(test)]

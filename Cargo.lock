@@ -207,7 +207,6 @@ name = "oppw4-hooks"
 version = "0.1.0"
 dependencies = [
  "oppw4-plugin-api",
- "oppw4-rdb",
 ]
 
 [[package]]
@@ -217,9 +216,6 @@ version = "0.1.0"
 [[package]]
 name = "oppw4-rdb"
 version = "0.1.0"
-dependencies = [
- "zip",
-]
 
 [[package]]
 name = "oppw4-rdb-tool"

@@ -1,6 +1,6 @@
 use std::{collections::HashMap, io::SeekFrom};
 
-use crate::{open_virtual_replacement, VirtualFile, VirtualReplacement};
+use crate::patching::{open_virtual_replacement, VirtualFile, VirtualReplacement};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct VirtualHandle(u64);

@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
-use crate::{parse_block_tail, ArchiveScan, ModAsset, ReplacementSource};
+use crate::patching::{ModAsset, ReplacementSource};
+use oppw4_rdb::{parse_block_tail, ArchiveScan};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VirtualReplacement {
@@ -100,7 +101,7 @@ pub fn build_virtualization_table_from_assets(
 
 fn build_replacement(
     scan: &ArchiveScan<'_>,
-    file: &crate::VirtualizedFile<'_>,
+    file: &oppw4_rdb::VirtualizedFile<'_>,
     source: ReplacementSource,
 ) -> Option<VirtualReplacement> {
     let hash = file.hash?;
@@ -131,7 +132,7 @@ fn align_virtual_offset(offset: u64) -> u64 {
     (offset + 0xffff) & !0xffff
 }
 
-fn build_virtual_prefix(block: &crate::RdbBlock) -> Option<Vec<u8>> {
+fn build_virtual_prefix(block: &oppw4_rdb::RdbBlock) -> Option<Vec<u8>> {
     let address_len = block.field_10 as usize;
     if address_len == 0 || address_len > block.raw.len() {
         return None;

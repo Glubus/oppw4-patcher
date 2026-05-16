@@ -13,8 +13,6 @@ pub(crate) const INVALID_HANDLE_VALUE: Handle = !0usize as Handle;
 pub(crate) const FAKE_HANDLE_MASK: usize = 0xf000_0000_0000_0000;
 pub(crate) const FAKE_HANDLE_BITS: usize = 0x1000_0000_0000_0000;
 pub(crate) const FILE_TYPE_DISK: Dword = 0x0000_0001;
-pub(crate) const FILETIME_TICKS_PER_SECOND: u64 = 10_000_000;
-pub(crate) const WINDOWS_TO_UNIX_EPOCH_SECONDS: u64 = 11_644_473_600;
 pub(crate) const IMAGE_DIRECTORY_ENTRY_IMPORT: usize = 1;
 pub(crate) const IMAGE_ORDINAL_FLAG64: u64 = 0x8000_0000_0000_0000;
 

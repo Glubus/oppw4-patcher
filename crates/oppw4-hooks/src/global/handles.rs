@@ -1,6 +1,17 @@
-use oppw4_rdb::VirtualHandle;
-
 use super::types::{Handle, FAKE_HANDLE_BITS, FAKE_HANDLE_MASK};
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(crate) struct VirtualHandle(u64);
+
+impl VirtualHandle {
+    pub(crate) fn from_raw(raw: u64) -> Self {
+        Self(raw)
+    }
+
+    pub(crate) fn as_raw(self) -> u64 {
+        self.0
+    }
+}
 
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn handle_to_fake(handle: VirtualHandle) -> Handle {

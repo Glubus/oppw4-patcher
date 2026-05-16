@@ -17,7 +17,7 @@ pub(crate) struct PluginManifest {
 
 impl PluginManifest {
     pub(crate) fn read_from_dir(plugin_dir: &Path) -> Option<Self> {
-        let manifest_path = plugin_dir.join("mod.toml");
+        let manifest_path = plugin_dir.join("plugin.toml");
         let text = match fs::read_to_string(&manifest_path) {
             Ok(text) => text,
             Err(error) => {
@@ -162,5 +162,53 @@ mod tests {
         .expect_err("version should be required");
 
         assert!(error.contains("plugin.version"));
+    }
+
+    #[test]
+    fn manifest_file_is_named_plugin_toml() {
+        let root = temp_root("plugin-toml");
+        fs::create_dir_all(&root).expect("temp plugin dir");
+        fs::write(
+            root.join("plugin.toml"),
+            r#"
+                [plugin]
+                id = "skin_patcher"
+                version = "0.1.0"
+                entry = "skin_patcher.dll"
+            "#,
+        )
+        .expect("plugin manifest");
+
+        let manifest = PluginManifest::read_from_dir(&root).expect("manifest");
+
+        assert_eq!(manifest.id, "skin_patcher");
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn legacy_mod_toml_is_not_a_plugin_manifest() {
+        let root = temp_root("mod-toml");
+        fs::create_dir_all(&root).expect("temp plugin dir");
+        fs::write(
+            root.join("mod.toml"),
+            r#"
+                [plugin]
+                id = "skin_patcher"
+                version = "0.1.0"
+                entry = "skin_patcher.dll"
+            "#,
+        )
+        .expect("legacy manifest");
+
+        assert!(PluginManifest::read_from_dir(&root).is_none());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    fn temp_root(label: &str) -> PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("time")
+            .as_nanos();
+        std::env::temp_dir().join(format!("oppw4-{label}-{nanos}"))
     }
 }

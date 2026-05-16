@@ -1,24 +1,36 @@
 use std::{
     ffi::{c_char, c_void, CString},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 use oppw4_plugin_api::{
-    optional_cstr, Oppw4LogEntry, Oppw4PluginApi, Oppw4VirtualReplacement, OPPW4_PLUGIN_API_VERSION,
+    optional_cstr, HostPluginModZipVisitorFn, Oppw4LogEntry, Oppw4PluginApi,
+    Oppw4VirtualReplacement, OPPW4_PLUGIN_API_VERSION,
 };
 
-use super::logs;
+use super::{logs, mods};
+
+pub(crate) struct ApiContext {
+    plugin_mods_root: PathBuf,
+}
+
+impl ApiContext {
+    pub(crate) fn new(plugin_mods_root: PathBuf) -> Self {
+        Self { plugin_mods_root }
+    }
+}
 
 pub(crate) fn build_api(
     game_root: &Path,
     game_root_utf8: &CString,
     plugin_root_utf8: &CString,
     plugin_mods_root_utf8: &CString,
+    context: &ApiContext,
 ) -> Oppw4PluginApi {
     let _ = game_root;
     Oppw4PluginApi {
         version: OPPW4_PLUGIN_API_VERSION,
-        host_context: std::ptr::null_mut(),
+        host_context: (context as *const ApiContext).cast_mut().cast(),
         game_root_utf8: game_root_utf8.as_ptr(),
         plugin_root_utf8: plugin_root_utf8.as_ptr(),
         plugin_mods_root_utf8: plugin_mods_root_utf8.as_ptr(),
@@ -30,6 +42,7 @@ pub(crate) fn build_api(
         read_memory: Some(host_read_memory),
         write_memory: Some(host_write_memory),
         scan_memory: Some(host_scan_memory),
+        for_each_plugin_mod_zip: Some(host_for_each_plugin_mod_zip),
     }
 }
 
@@ -106,4 +119,25 @@ unsafe extern "system" fn host_scan_memory(
     len: usize,
 ) -> usize {
     oppw4_hooks::scan_memory(pattern, mask, len)
+}
+
+unsafe extern "system" fn host_for_each_plugin_mod_zip(
+    host_context: *mut c_void,
+    visitor: Option<HostPluginModZipVisitorFn>,
+    user_context: *mut c_void,
+) -> i32 {
+    let Some(context) = host_context.cast::<ApiContext>().as_ref() else {
+        return -1;
+    };
+    let Some(visitor) = visitor else {
+        return -2;
+    };
+    for path in mods::list_zip_paths(&context.plugin_mods_root) {
+        let path = cstring_lossy(&path.to_string_lossy());
+        let result = visitor(user_context, path.as_ptr());
+        if result != 0 {
+            return result;
+        }
+    }
+    0
 }

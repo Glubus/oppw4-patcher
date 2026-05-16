@@ -3,7 +3,7 @@ use std::{
     ptr,
 };
 
-pub const OPPW4_PLUGIN_API_VERSION: u32 = 4;
+pub const OPPW4_PLUGIN_API_VERSION: u32 = 5;
 pub const OPPW4_PLUGIN_INIT_SYMBOL: &[u8] = b"oppw4_plugin_init\0";
 
 pub type PluginInitFn = unsafe extern "system" fn(api: *const Oppw4PluginApi) -> i32;
@@ -36,6 +36,13 @@ pub type HostScanMemoryFn = unsafe extern "system" fn(
     mask: *const u8,
     len: usize,
 ) -> usize;
+pub type HostPluginModZipVisitorFn =
+    unsafe extern "system" fn(user_context: *mut c_void, path_utf8: *const c_char) -> i32;
+pub type HostForEachPluginModZipFn = unsafe extern "system" fn(
+    host_context: *mut c_void,
+    visitor: Option<HostPluginModZipVisitorFn>,
+    user_context: *mut c_void,
+) -> i32;
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -53,6 +60,7 @@ pub struct Oppw4PluginApi {
     pub read_memory: Option<HostReadMemoryFn>,
     pub write_memory: Option<HostWriteMemoryFn>,
     pub scan_memory: Option<HostScanMemoryFn>,
+    pub for_each_plugin_mod_zip: Option<HostForEachPluginModZipFn>,
 }
 
 #[repr(C)]
@@ -181,6 +189,21 @@ impl Oppw4PluginApi {
             )
         }
     }
+
+    pub fn plugin_mod_zips(&self) -> Vec<String> {
+        let Some(for_each) = self.for_each_plugin_mod_zip else {
+            return Vec::new();
+        };
+        let mut paths = Vec::new();
+        unsafe {
+            let _ = for_each(
+                self.host_context,
+                Some(collect_plugin_mod_zip),
+                (&mut paths as *mut Vec<String>).cast(),
+            );
+        }
+        paths
+    }
 }
 
 pub fn cstring_lossy(value: impl AsRef<str>) -> CString {
@@ -198,6 +221,20 @@ pub unsafe fn optional_cstr<'a>(value: *const c_char) -> Option<&'a CStr> {
     (!value.is_null()).then(|| CStr::from_ptr(value))
 }
 
+unsafe extern "system" fn collect_plugin_mod_zip(
+    user_context: *mut c_void,
+    path_utf8: *const c_char,
+) -> i32 {
+    let Some(paths) = user_context.cast::<Vec<String>>().as_mut() else {
+        return -1;
+    };
+    let Some(path) = optional_cstr(path_utf8) else {
+        return -2;
+    };
+    paths.push(path.to_string_lossy().into_owned());
+    0
+}
+
 pub const fn null_api() -> Oppw4PluginApi {
     Oppw4PluginApi {
         version: OPPW4_PLUGIN_API_VERSION,
@@ -213,6 +250,7 @@ pub const fn null_api() -> Oppw4PluginApi {
         read_memory: None,
         write_memory: None,
         scan_memory: None,
+        for_each_plugin_mod_zip: None,
     }
 }
 
@@ -232,6 +270,22 @@ mod tests {
             .lock()
             .expect("capture lock")
             .push(format!("{plugin_id}:{message}"));
+    }
+
+    unsafe extern "system" fn visit_mod_zips(
+        _host_context: *mut c_void,
+        visitor: Option<HostPluginModZipVisitorFn>,
+        user_context: *mut c_void,
+    ) -> i32 {
+        let Some(visitor) = visitor else {
+            return -1;
+        };
+        let a = cstring_lossy(r"D:\Game\OPPW4\plugins\skin_patcher\mods\a.zip");
+        let b = cstring_lossy(r"D:\Game\OPPW4\plugins\skin_patcher\mods\nested\b.zip");
+        if visitor(user_context, a.as_ptr()) != 0 {
+            return -2;
+        }
+        visitor(user_context, b.as_ptr())
     }
 
     #[test]
@@ -255,6 +309,7 @@ mod tests {
             read_memory: None,
             write_memory: None,
             scan_memory: None,
+            for_each_plugin_mod_zip: None,
         };
         let plugin = cstring_lossy("skin_patcher");
         let message = cstring_lossy("hello");
@@ -264,6 +319,34 @@ mod tests {
         assert_eq!(
             CAPTURED.get().unwrap().lock().unwrap().as_slice(),
             ["skin_patcher:hello"]
+        );
+    }
+
+    #[test]
+    fn api_collects_plugin_mod_zip_paths_from_host() {
+        let api = Oppw4PluginApi {
+            version: OPPW4_PLUGIN_API_VERSION,
+            host_context: ptr::null_mut(),
+            game_root_utf8: ptr::null(),
+            plugin_root_utf8: ptr::null(),
+            plugin_mods_root_utf8: ptr::null(),
+            log: None,
+            clear_virtual_replacements: None,
+            register_virtual_replacement: None,
+            commit_virtual_replacements: None,
+            module_base: None,
+            read_memory: None,
+            write_memory: None,
+            scan_memory: None,
+            for_each_plugin_mod_zip: Some(visit_mod_zips),
+        };
+
+        assert_eq!(
+            api.plugin_mod_zips(),
+            [
+                r"D:\Game\OPPW4\plugins\skin_patcher\mods\a.zip",
+                r"D:\Game\OPPW4\plugins\skin_patcher\mods\nested\b.zip",
+            ]
         );
     }
 }

@@ -74,11 +74,13 @@ unsafe fn load_plugin(game_root: &Path, manifest: &PluginManifest) -> bool {
     let game_root_utf8 = ffi::cstring_lossy(&game_root.to_string_lossy());
     let plugin_root_utf8 = ffi::cstring_lossy(&manifest.root.to_string_lossy());
     let plugin_mods_root_utf8 = ffi::cstring_lossy(&manifest.mods_root.to_string_lossy());
+    let api_context = ffi::ApiContext::new(manifest.mods_root.clone());
     let api = ffi::build_api(
         game_root,
         &game_root_utf8,
         &plugin_root_utf8,
         &plugin_mods_root_utf8,
+        &api_context,
     );
     let result = init(&api);
     if result != 0 {

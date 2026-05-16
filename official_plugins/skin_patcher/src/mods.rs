@@ -8,11 +8,15 @@ use oppw4_rdb::{ModAsset, ReplacementSource};
 
 pub struct ModRepository {
     root: PathBuf,
+    zip_paths: Option<Vec<PathBuf>>,
 }
 
 impl ModRepository {
-    pub fn new(root: PathBuf) -> Self {
-        Self { root }
+    pub fn with_zip_paths(root: PathBuf, zip_paths: Vec<PathBuf>) -> Self {
+        Self {
+            root,
+            zip_paths: Some(zip_paths),
+        }
     }
 
     pub fn archive_assets(&self, archive_name: &str) -> Vec<ModAsset> {
@@ -79,6 +83,9 @@ impl ModRepository {
     }
 
     fn zip_paths(&self) -> Vec<PathBuf> {
+        if let Some(paths) = &self.zip_paths {
+            return paths.clone();
+        }
         let mut paths = Vec::new();
         collect_zip_paths(&self.root, &mut paths);
         paths.sort_by_key(|path| path.to_string_lossy().to_ascii_lowercase());

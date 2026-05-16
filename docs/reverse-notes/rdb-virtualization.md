@@ -555,7 +555,8 @@ This is good news for a Rust rewrite: cloning the loader does not require immedi
 
 ### Milestone 4: Modern Loader Features
 
-- `mods/<mod_name>/mod.toml`
+- `plugins/<plugin_id>/plugin.toml`
+- `plugins/<plugin_id>/mods/`
 - load order / priorities
 - conflict detection
 - profiles

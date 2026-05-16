@@ -15,9 +15,14 @@ where
     let lua = Lua::new();
     install_import_alias(&lua).map_err(LuaRunError::Lua)?;
     register_modules(&lua).map_err(LuaRunError::Lua)?;
-    let source = mod_entry.read_entry_script().map_err(LuaRunError::ReadScript)?;
+    let source = mod_entry
+        .read_entry_script()
+        .map_err(LuaRunError::ReadScript)?;
     lua.load(&source)
-        .set_name(format!("{}:{}", mod_entry.manifest.id, mod_entry.manifest.entry_lua))
+        .set_name(format!(
+            "{}:{}",
+            mod_entry.manifest.id, mod_entry.manifest.entry_lua
+        ))
         .exec()
         .map_err(LuaRunError::Lua)
 }

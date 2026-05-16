@@ -60,7 +60,10 @@ unsafe fn allocate_anywhere(len: usize) -> Option<*mut c_void> {
 }
 
 fn candidate_addresses(center: usize, distance: usize) -> [usize; 2] {
-    [center.saturating_add(distance), center.saturating_sub(distance)]
+    [
+        center.saturating_add(distance),
+        center.saturating_sub(distance),
+    ]
 }
 
 fn align_down(value: usize, alignment: usize) -> usize {

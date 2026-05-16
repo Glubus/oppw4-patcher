@@ -14,7 +14,8 @@ extern "system" {
         new_protect: Dword,
         old_protect: *mut Dword,
     ) -> i32;
-    fn FlushInstructionCache(process: *mut c_void, base_address: *const c_void, size: usize) -> i32;
+    fn FlushInstructionCache(process: *mut c_void, base_address: *const c_void, size: usize)
+        -> i32;
 }
 
 pub fn main_module() -> Hmodule {

@@ -119,8 +119,12 @@ mod tests {
             "[2026-05-16 20:11:22] skin online\n"
         );
         assert_eq!(
-            fs::read_to_string(root.join("fx_tools").join("logs").join("2026-05-16-201122.log"))
-                .expect("fx log file"),
+            fs::read_to_string(
+                root.join("fx_tools")
+                    .join("logs")
+                    .join("2026-05-16-201122.log")
+            )
+            .expect("fx log file"),
             "[2026-05-16 20:11:22] fx online\n"
         );
         let _ = fs::remove_dir_all(root);

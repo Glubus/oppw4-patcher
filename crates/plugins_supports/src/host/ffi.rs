@@ -5,8 +5,8 @@ use std::{
 
 use oppw4_plugin_api::{
     optional_cstr, HostPluginModVisitorFn, HostPluginModZipVisitorFn, Oppw4FileProvider,
-    Oppw4GameStatus, Oppw4LogEntry, Oppw4PluginApi, Oppw4PluginModEntry,
-    OPPW4_PLUGIN_API_VERSION, OPPW4_PLUGIN_MOD_FLAG_ZIP,
+    Oppw4GameStatus, Oppw4LogEntry, Oppw4PluginApi, Oppw4PluginModEntry, OPPW4_PLUGIN_API_VERSION,
+    OPPW4_PLUGIN_MOD_FLAG_ZIP,
 };
 
 use super::{logs, mods};

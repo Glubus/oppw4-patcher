@@ -137,7 +137,10 @@ impl AuraConfig {
         if let Some(loop_end) = aura.get("loop_end").and_then(toml::Value::as_float) {
             self.loop_end = loop_end as f32;
         }
-        if let Some(delay) = aura.get("install_delay_ms").and_then(toml::Value::as_integer) {
+        if let Some(delay) = aura
+            .get("install_delay_ms")
+            .and_then(toml::Value::as_integer)
+        {
             self.install_delay_ms = delay.max(0) as u64;
         }
         if let Some(wait_for) = aura.get("wait_for").and_then(toml::Value::as_str) {

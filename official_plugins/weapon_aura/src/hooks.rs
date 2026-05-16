@@ -1,6 +1,5 @@
 use std::{
-    mem,
-    ptr,
+    mem, ptr,
     sync::atomic::{AtomicUsize, Ordering},
     sync::{Mutex, OnceLock},
     thread,
@@ -25,8 +24,8 @@ const LOCAL_PLAYER_MASK: &[u8] = &[1; 8];
 const AURA_UPDATE_ENTRY_OFFSET_FROM_ID_SITE: usize = 0xc6;
 const AURA_UPDATE_ENTRY_OVERWRITE_LEN: usize = 20;
 const AURA_UPDATE_ENTRY_PREFIX: &[u8] = &[
-    0x4c, 0x8b, 0xdc, 0x45, 0x89, 0x43, 0x18, 0x55, 0x56, 0x49, 0x8d, 0x6b, 0xa1, 0x48,
-    0x81, 0xec, 0xf8, 0x00, 0x00, 0x00,
+    0x4c, 0x8b, 0xdc, 0x45, 0x89, 0x43, 0x18, 0x55, 0x56, 0x49, 0x8d, 0x6b, 0xa1, 0x48, 0x81, 0xec,
+    0xf8, 0x00, 0x00, 0x00,
 ];
 
 static INSTALL: OnceLock<Mutex<Option<InstallState>>> = OnceLock::new();
@@ -178,7 +177,8 @@ fn install_now(api: &Oppw4PluginApi, config: AuraConfig) -> Result<(), String> {
         return Ok(());
     }
 
-    let needs_local_player = config.target == TargetMode::LocalPlayer || config.observe_character_probe;
+    let needs_local_player =
+        config.target == TargetMode::LocalPlayer || config.observe_character_probe;
     let local_player_site = if needs_local_player {
         log::write_line("weapon_aura scanning LocalPlayerHook signature");
         let site = api.scan_memory(LOCAL_PLAYER_PATTERN, LOCAL_PLAYER_MASK);
@@ -190,7 +190,9 @@ fn install_now(api: &Oppw4PluginApi, config: AuraConfig) -> Result<(), String> {
         ));
         Some(site)
     } else {
-        log::write_line("weapon_aura target=all and character probe disabled: LocalPlayerHook skipped");
+        log::write_line(
+            "weapon_aura target=all and character probe disabled: LocalPlayerHook skipped",
+        );
         None
     };
 
@@ -487,9 +489,11 @@ fn probe_u32_fields(base: usize, offsets: &[usize]) -> String {
     }
     offsets
         .iter()
-        .map(|offset| format!("+0x{offset:x}:{}", unsafe {
-            read_unaligned_u32(base + offset)
-        }))
+        .map(|offset| {
+            format!("+0x{offset:x}:{}", unsafe {
+                read_unaligned_u32(base + offset)
+            })
+        })
         .collect::<Vec<_>>()
         .join(",")
 }
@@ -500,9 +504,12 @@ fn probe_ptr_fields(base: usize, offsets: &[usize]) -> String {
     }
     offsets
         .iter()
-        .map(|offset| format!("+0x{offset:x}:{}", fmt_ptr(unsafe {
-            read_unaligned_usize(base + offset)
-        })))
+        .map(|offset| {
+            format!(
+                "+0x{offset:x}:{}",
+                fmt_ptr(unsafe { read_unaligned_usize(base + offset) })
+            )
+        })
         .collect::<Vec<_>>()
         .join(",")
 }
@@ -634,7 +641,9 @@ impl InlineHook {
         let mut original = vec![0u8; overwrite_len];
         let result = api.read_memory(site, &mut original);
         if result != 0 {
-            return Err(format!("read_memory failed site=0x{site:x} result={result}"));
+            return Err(format!(
+                "read_memory failed site=0x{site:x} result={result}"
+            ));
         }
 
         let mut trampoline_code = original;
@@ -646,7 +655,9 @@ impl InlineHook {
         patch.resize(overwrite_len, 0x90);
         let result = api.write_memory(site, &patch);
         if result != 0 {
-            return Err(format!("write_memory failed site=0x{site:x} result={result}"));
+            return Err(format!(
+                "write_memory failed site=0x{site:x} result={result}"
+            ));
         }
 
         Ok(Self { trampoline })
@@ -736,11 +747,26 @@ fn build_duration_cave(
     let base = arena.reserve(code.len(), 16)?;
     patch_disp32_vec(&mut code, base, duration_hits_inc, data.duration_hits)?;
     patch_disp32_vec(&mut code, base, enabled_cmp, data.enabled)?;
-    patch_rel32_vec(&mut code, base, jump_original_disabled, base + original_label)?;
+    patch_rel32_vec(
+        &mut code,
+        base,
+        jump_original_disabled,
+        base + original_label,
+    )?;
     patch_disp32_vec(&mut code, base, force_cmp, data.force_effect_id)?;
-    patch_rel32_vec(&mut code, base, jump_original_not_forced, base + original_label)?;
+    patch_rel32_vec(
+        &mut code,
+        base,
+        jump_original_not_forced,
+        base + original_label,
+    )?;
     patch_disp32_vec(&mut code, base, effect_cmp, data.effect_id)?;
-    patch_rel32_vec(&mut code, base, jump_original_mismatch, base + original_label)?;
+    patch_rel32_vec(
+        &mut code,
+        base,
+        jump_original_mismatch,
+        base + original_label,
+    )?;
     patch_disp32_vec(
         &mut code,
         base,
@@ -751,7 +777,12 @@ fn build_duration_cave(
     patch_disp32_vec(&mut code, base, speed_load, data.speed)?;
     patch_disp32_vec(&mut code, base, timer_store, data.timer)?;
     patch_disp32_vec(&mut code, base, loop_end_load, data.loop_end)?;
-    patch_rel32_vec(&mut code, base, jump_original_not_done, base + original_label)?;
+    patch_rel32_vec(
+        &mut code,
+        base,
+        jump_original_not_done,
+        base + original_label,
+    )?;
     patch_disp32_vec(&mut code, base, loop_start_load, data.loop_start)?;
     patch_disp32_vec(&mut code, base, timer_reset, data.timer)?;
     patch_rel32_vec(&mut code, base, jump_back, return_address)?;
@@ -771,7 +802,9 @@ unsafe fn patch_jump(
     patch[1..5].copy_from_slice(&rel.to_le_bytes());
     let result = api.write_memory(site, &patch);
     if result != 0 {
-        return Err(format!("write_memory failed site=0x{site:x} result={result}"));
+        return Err(format!(
+            "write_memory failed site=0x{site:x} result={result}"
+        ));
     }
     Ok(())
 }
@@ -836,7 +869,10 @@ unsafe extern "system" fn aura_update_detour(param_1: usize, param_2: usize, par
     }
 
     let forced_effect_id = read_u32(data.effect_id);
-    write_u32(data.id_forced_hits, read_u32(data.id_forced_hits).wrapping_add(1));
+    write_u32(
+        data.id_forced_hits,
+        read_u32(data.id_forced_hits).wrapping_add(1),
+    );
     ptr::write_unaligned(effect_field, forced_effect_id);
     original(param_1, param_2, param_3);
     ptr::write_unaligned(effect_field, natural_effect_id);
@@ -1053,7 +1089,10 @@ fn patch_disp32_vec(
     target: usize,
 ) -> Result<(), String> {
     let instruction_end = base + disp_offset + 4;
-    let disp = checked_i32(target as isize - instruction_end as isize, "rip displacement")?;
+    let disp = checked_i32(
+        target as isize - instruction_end as isize,
+        "rip displacement",
+    )?;
     write_i32(code, disp_offset, disp)
 }
 

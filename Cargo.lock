@@ -327,6 +327,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
+name = "oppw4-character"
+version = "0.1.0"
+
+[[package]]
 name = "oppw4-dinput8-proxy"
 version = "0.1.0"
 dependencies = [
@@ -384,6 +388,7 @@ name = "oppw4-weapon-aura-plugin"
 version = "0.1.0"
 dependencies = [
  "mlua",
+ "oppw4-character",
  "oppw4-lua-support",
  "oppw4-plugin-api",
  "toml",

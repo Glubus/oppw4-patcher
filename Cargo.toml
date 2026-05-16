@@ -2,6 +2,7 @@
 members = [
     "apps/dinput8-proxy",
     "apps/rdb-tool",
+    "crates/oppw4-character",
     "crates/oppw4-hooks",
     "crates/oppw4-lua-support",
     "crates/oppw4-plugin-api",
@@ -19,6 +20,7 @@ license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
 oppw4-rdb = { path = "crates/oppw4-rdb" }
+oppw4-character = { path = "crates/oppw4-character" }
 oppw4-plugin-api = { path = "crates/oppw4-plugin-api" }
 oppw4-hooks = { path = "crates/oppw4-hooks" }
 oppw4-lua-support = { path = "crates/oppw4-lua-support" }

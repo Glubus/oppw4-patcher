@@ -12,7 +12,9 @@ pub use address::{parse_block_tail, parse_payload_tail, RdbAddressSuffix, RdbPay
 pub use catalog::{parse_name_hash_catalog, NameHashEntry};
 pub use hash::parse_prefixed_hex_hash;
 pub use linkdata::{
-    inflate_linkdata_entry, parse_linkdata, LinkDataEntry, LinkDataError, LinkDataIndex,
+    inflate_linkdata_entry, parse_linkdata, patch_linkdata_entries_in_place,
+    rebuild_linkdata_raw_with_edits, rebuild_linkdata_with_edits, LinkDataEntry, LinkDataError,
+    LinkDataIndex,
 };
 pub use mod_source::{ModAsset, ReadSeek, ReplacementSource};
 pub use r#virtual::{
@@ -20,7 +22,10 @@ pub use r#virtual::{
     build_virtualization_table_from_assets, open_virtual_replacement, ReplacementMode, VirtualFile,
     VirtualHandle, VirtualHandleTable, VirtualManager, VirtualReplacement, VirtualReplacementFile,
 };
-pub use rdb::{parse_rdb, RdbBlock, RdbError, RdbHeader, RdbIndex};
+pub use rdb::{
+    append_virtual_rdb_entry, parse_rdb, RdbAppendError, RdbAppendSpec, RdbBlock, RdbError,
+    RdbHeader, RdbIndex,
+};
 pub use scan::{
     scan_archive_names_with_catalog, scan_virtualized_names, scan_virtualized_names_with_catalog,
     ArchiveScan, ArchiveScanCounts, VirtualizedFile,
@@ -185,6 +190,36 @@ mod tests {
             })
         );
         assert_eq!(parse_block_tail(block), parse_payload_tail(&block.payload));
+    }
+
+    #[test]
+    fn appends_virtual_entry_from_template_block() {
+        let bytes = fixture();
+        let patched = append_virtual_rdb_entry(
+            &bytes,
+            RdbAppendSpec {
+                template_hash: 0x0011c397,
+                private_hash: 0x730c0575,
+                virtual_bin_suffix: "120".to_string(),
+                payload_size: 0x1aa55,
+            },
+        )
+        .unwrap();
+        let parsed = parse_rdb(&patched).unwrap();
+
+        assert_eq!(parsed.header.declared_count, 3);
+        let private = parsed
+            .blocks
+            .iter()
+            .find(|block| block.primary_hash == 0x730c0575)
+            .unwrap();
+
+        assert_eq!(parse_block_tail(private).unwrap().raw, "0@1aa55#120");
+        assert_eq!(private.field_10, "0@1aa55#120".len() as u32 + 1);
+        assert!(parsed
+            .blocks
+            .windows(2)
+            .all(|pair| pair[0].primary_hash <= pair[1].primary_hash));
     }
 
     #[test]

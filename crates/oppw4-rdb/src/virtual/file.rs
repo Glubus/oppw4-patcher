@@ -1,6 +1,7 @@
 use std::{
     fmt,
     io::{Read, Seek, SeekFrom},
+    mem::size_of,
 };
 
 use crate::{ReadSeek, VirtualReplacement};
@@ -93,6 +94,21 @@ impl VirtualFile {
         self.position = new_position;
         Ok(self.position)
     }
+
+    pub fn memory_ranges(&self) -> Vec<(usize, usize)> {
+        let mut ranges = Vec::new();
+        push_memory_range(
+            &mut ranges,
+            self as *const VirtualFile as usize,
+            size_of::<VirtualFile>(),
+        );
+        push_memory_range(
+            &mut ranges,
+            self.prefix.as_ptr() as usize,
+            self.prefix.len(),
+        );
+        ranges
+    }
 }
 
 pub fn open_virtual_replacement(replacement: &VirtualReplacement) -> std::io::Result<VirtualFile> {
@@ -141,6 +157,15 @@ fn invalid_seek() -> std::io::Error {
         std::io::ErrorKind::InvalidInput,
         "invalid virtual file seek",
     )
+}
+
+fn push_memory_range(ranges: &mut Vec<(usize, usize)>, start: usize, len: usize) {
+    if start == 0 || len == 0 {
+        return;
+    }
+    if let Some(end) = start.checked_add(len) {
+        ranges.push((start, end));
+    }
 }
 
 #[cfg(test)]

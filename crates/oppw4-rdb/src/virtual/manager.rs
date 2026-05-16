@@ -1,4 +1,4 @@
-use std::io::SeekFrom;
+use std::{io::SeekFrom, mem::size_of};
 
 use crate::{VirtualHandle, VirtualHandleTable, VirtualReplacement};
 
@@ -52,6 +52,10 @@ impl VirtualManager {
         Ok(Some((handle, replacement)))
     }
 
+    pub fn contains_path_fragment(&self, path: &str) -> bool {
+        self.find_replacement_by_path_fragment(path).is_some()
+    }
+
     pub fn read(&mut self, handle: VirtualHandle, buffer: &mut [u8]) -> std::io::Result<usize> {
         self.handles.read(handle, buffer)
     }
@@ -74,16 +78,52 @@ impl VirtualManager {
         read_offset: u64,
         buffer: &mut [u8],
     ) -> std::io::Result<usize> {
+        self.patch_archive_read_if(archive_name, read_offset, buffer, |_| true)
+    }
+
+    pub fn patch_archive_read_if(
+        &self,
+        archive_name: &str,
+        read_offset: u64,
+        buffer: &mut [u8],
+        mut allow: impl FnMut(&VirtualReplacement) -> bool,
+    ) -> std::io::Result<usize> {
         let mut patched = 0;
         for replacement in self
             .replacements
             .iter()
             .filter(|replacement| replacement.archive_name.eq_ignore_ascii_case(archive_name))
         {
+            if !allow(replacement) {
+                continue;
+            }
             let Some(start) = replacement.virtual_bin_offset else {
                 continue;
             };
             let Some(size) = replacement.mod_size else {
+                continue;
+            };
+            patched += patch_replacement_window(replacement, start, size, read_offset, buffer)?;
+        }
+        Ok(patched)
+    }
+
+    pub fn patch_archive_original_read(
+        &self,
+        archive_name: &str,
+        read_offset: u64,
+        buffer: &mut [u8],
+    ) -> std::io::Result<usize> {
+        let mut patched = 0;
+        for replacement in self
+            .replacements
+            .iter()
+            .filter(|replacement| replacement.archive_name.eq_ignore_ascii_case(archive_name))
+        {
+            let Some(start) = replacement.original_bin_offset.map(u64::from) else {
+                continue;
+            };
+            let Some(size) = replacement.original_bin_size.map(u64::from) else {
                 continue;
             };
             patched += patch_replacement_window(replacement, start, size, read_offset, buffer)?;
@@ -135,12 +175,25 @@ impl VirtualManager {
         read_offset: u64,
         buffer: &mut [u8],
     ) -> usize {
+        self.patch_archive_index_external_flags_if(archive_name, read_offset, buffer, |_| true)
+    }
+
+    pub fn patch_archive_index_external_flags_if(
+        &self,
+        archive_name: &str,
+        read_offset: u64,
+        buffer: &mut [u8],
+        mut allow: impl FnMut(&VirtualReplacement) -> bool,
+    ) -> usize {
         let mut patched = 0;
         for replacement in self
             .replacements
             .iter()
             .filter(|replacement| replacement.archive_name.eq_ignore_ascii_case(archive_name))
         {
+            if !allow(replacement) {
+                continue;
+            }
             if patch_replacement_external_size(replacement, read_offset, buffer) {
                 patched += 1;
             }
@@ -183,6 +236,27 @@ impl VirtualManager {
             .collect()
     }
 
+    pub fn memory_ranges(&self) -> Vec<(usize, usize)> {
+        let mut ranges = Vec::new();
+        push_memory_range(
+            &mut ranges,
+            self as *const VirtualManager as usize,
+            size_of::<VirtualManager>(),
+        );
+        push_memory_range(
+            &mut ranges,
+            self.replacements.as_ptr() as usize,
+            self.replacements
+                .len()
+                .saturating_mul(size_of::<VirtualReplacement>()),
+        );
+        for replacement in &self.replacements {
+            ranges.extend(replacement.memory_ranges());
+        }
+        ranges.extend(self.handles.memory_ranges());
+        coalesce_memory_ranges(ranges)
+    }
+
     fn find_replacement(&self, archive_name: &str, hash: u32) -> Option<&VirtualReplacement> {
         self.replacements.iter().find(|replacement| {
             replacement.archive_name.eq_ignore_ascii_case(archive_name) && replacement.hash == hash
@@ -198,10 +272,17 @@ impl VirtualManager {
     fn find_replacement_by_path_fragment(&self, path: &str) -> Option<&VirtualReplacement> {
         let path = path.to_ascii_lowercase();
         self.replacements.iter().find(|replacement| {
-            path.contains(&replacement.file_name.to_ascii_lowercase())
+            path_matches_file_name(&path, &replacement.file_name)
                 || path.contains(&format!("0x{:08x}", replacement.hash))
         })
     }
+}
+
+fn path_matches_file_name(lower_path: &str, file_name: &str) -> bool {
+    let file_name = file_name.to_ascii_lowercase();
+    lower_path == file_name
+        || lower_path.ends_with(&format!("\\{file_name}"))
+        || lower_path.ends_with(&format!("/{file_name}"))
 }
 
 fn patch_replacement_window(
@@ -228,11 +309,40 @@ fn patch_replacement_window(
     Ok(target_end - target_start)
 }
 
+fn push_memory_range(ranges: &mut Vec<(usize, usize)>, start: usize, len: usize) {
+    if start == 0 || len == 0 {
+        return;
+    }
+    if let Some(end) = start.checked_add(len) {
+        ranges.push((start, end));
+    }
+}
+
+fn coalesce_memory_ranges(mut ranges: Vec<(usize, usize)>) -> Vec<(usize, usize)> {
+    ranges.sort_unstable_by_key(|(start, _)| *start);
+    let mut merged: Vec<(usize, usize)> = Vec::new();
+    for (start, end) in ranges {
+        if start >= end {
+            continue;
+        }
+        match merged.last_mut() {
+            Some((_, last_end)) if start <= *last_end => {
+                *last_end = (*last_end).max(end);
+            }
+            _ => merged.push((start, end)),
+        }
+    }
+    merged
+}
+
 fn patch_replacement_index_tail(
     replacement: &VirtualReplacement,
     read_offset: u64,
     buffer: &mut [u8],
 ) -> bool {
+    if !has_rdb_index_block(replacement) {
+        return false;
+    }
     let Some(bin_offset) = replacement.virtual_bin_offset else {
         return false;
     };
@@ -274,6 +384,9 @@ fn patch_replacement_index_address_len(
     read_offset: u64,
     buffer: &mut [u8],
 ) -> bool {
+    if !has_rdb_index_block(replacement) {
+        return false;
+    }
     let field_offset = replacement.rdb_block_offset as u64 + 0x10;
     if field_offset < read_offset {
         return false;
@@ -294,6 +407,9 @@ fn patch_replacement_external_size(
     read_offset: u64,
     buffer: &mut [u8],
 ) -> bool {
+    if !has_rdb_index_block(replacement) {
+        return false;
+    }
     let Some(mod_size) = replacement.mod_size else {
         return false;
     };
@@ -310,12 +426,19 @@ fn patch_replacement_external_flag(
     read_offset: u64,
     buffer: &mut [u8],
 ) -> bool {
+    if !has_rdb_index_block(replacement) {
+        return false;
+    }
     patch_field(
         replacement.rdb_block_offset as u64 + 0x2c,
         read_offset,
         buffer,
         &0x10000u32.to_le_bytes(),
     )
+}
+
+fn has_rdb_index_block(replacement: &VirtualReplacement) -> bool {
+    replacement.rdb_block_offset != usize::MAX
 }
 
 fn patch_field(field_offset: u64, read_offset: u64, buffer: &mut [u8], value: &[u8]) -> bool {
@@ -422,5 +545,34 @@ mod tests {
         assert_eq!(patched, 2);
         assert_eq!(&buffer[0x58..0x60], &0x200038u64.to_le_bytes());
         assert_eq!(&buffer[0x6c..0x70], &0x10000u32.to_le_bytes());
+    }
+
+    #[test]
+    fn index_patch_skips_direct_path_only_replacements() {
+        let mut replacement = replacement("CharacterEditor", usize::MAX);
+        replacement.mod_size = Some(0x1234);
+        let manager = VirtualManager::new(vec![replacement]);
+        let mut buffer = vec![0xcc; 0x80];
+
+        let patched = manager.patch_archive_index_external_flags("CharacterEditor", 0, &mut buffer);
+
+        assert_eq!(patched, 0);
+        assert!(buffer.iter().all(|byte| *byte == 0xcc));
+    }
+
+    #[test]
+    fn path_fragment_match_requires_exact_file_name_boundary() {
+        assert!(super::path_matches_file_name(
+            r"d:\game\charactereditor.rdb",
+            "CharacterEditor.rdb"
+        ));
+        assert!(!super::path_matches_file_name(
+            r"d:\game\charactereditor.rdb.bin",
+            "CharacterEditor.rdb"
+        ));
+        assert!(super::path_matches_file_name(
+            r"d:\game\charactereditor.rdb.bin120",
+            "CharacterEditor.rdb.bin120"
+        ));
     }
 }

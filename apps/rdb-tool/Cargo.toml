@@ -9,4 +9,6 @@ name = "oppw4-rdb"
 path = "src/main.rs"
 
 [dependencies]
+oppw4-data-struct.workspace = true
+oppw4-linkdata-insert.workspace = true
 oppw4-rdb.workspace = true

@@ -1,7 +1,13 @@
 use std::{env, fs, path::Path, process};
 
+mod kidsdb_dump;
+#[allow(dead_code)]
 mod linkdata_costume_dump;
+mod linkdata_entry_triage;
+mod linkdata_insert;
+mod linkdata_reference_csv;
 mod linkdata_scan;
+mod linkdata_struct_dump;
 
 use oppw4_rdb::{
     attach_mod_file_sizes, build_virtualization_table, inflate_linkdata_entry, parse_block_tail,
@@ -40,8 +46,16 @@ enum Command {
         linkdata_path: String,
         needle: String,
     },
-    LinkDataCostumeDump(linkdata_costume_dump::DumpConfig),
+    LinkDataInsertLawSlot(linkdata_insert::InsertCommand),
+    LawSlot5AssetPackage,
+    LawSlot5Preflight {
+        linkdata_path: String,
+    },
+    LinkDataReferenceCsv(linkdata_reference_csv::ReferenceCsvCommand),
+    LinkDataStructDump(linkdata_struct_dump::StructDumpCommand),
+    LinkDataEntryTriage(linkdata_entry_triage::TriageCommand),
     LinkDataProximityScan(linkdata_scan::ScanConfig),
+    KidsDbDump(kidsdb_dump::DumpCommand),
 }
 
 fn main() {
@@ -76,15 +90,54 @@ fn parse_args(mut args: impl Iterator<Item = String>) -> Result<CliArgs, String>
         return parse_linkdata_search_command(args).map(|command| CliArgs { command });
     }
 
-    if rdb_path == "--linkdata-costume-dump" {
-        return linkdata_costume_dump::parse_command(args).map(|command| CliArgs {
-            command: Command::LinkDataCostumeDump(command),
+    if rdb_path == "--linkdata-insert-law-slot" {
+        return linkdata_insert::parse_command(args).map(|command| CliArgs {
+            command: Command::LinkDataInsertLawSlot(command),
+        });
+    }
+
+    if rdb_path == "--law-slot5-asset-package" {
+        return Ok(CliArgs {
+            command: Command::LawSlot5AssetPackage,
+        });
+    }
+
+    if rdb_path == "--law-slot5-preflight" {
+        let Some(linkdata_path) = args.next() else {
+            return Err("usage: oppw4-rdb --law-slot5-preflight <linkdata-bin>".to_string());
+        };
+        return Ok(CliArgs {
+            command: Command::LawSlot5Preflight { linkdata_path },
+        });
+    }
+
+    if rdb_path == "--linkdata-reference-csv" {
+        return linkdata_reference_csv::parse_command(args).map(|command| CliArgs {
+            command: Command::LinkDataReferenceCsv(command),
         });
     }
 
     if rdb_path == "--linkdata-proximity-scan" {
         return linkdata_scan::parse_command(args).map(|command| CliArgs {
             command: Command::LinkDataProximityScan(command),
+        });
+    }
+
+    if rdb_path == "--linkdata-struct-dump" {
+        return linkdata_struct_dump::parse_command(args).map(|command| CliArgs {
+            command: Command::LinkDataStructDump(command),
+        });
+    }
+
+    if rdb_path == "--linkdata-entry-triage" {
+        return linkdata_entry_triage::parse_command(args).map(|command| CliArgs {
+            command: Command::LinkDataEntryTriage(command),
+        });
+    }
+
+    if rdb_path == "--kidsdb-dump" {
+        return kidsdb_dump::parse_command(args).map(|command| CliArgs {
+            command: Command::KidsDbDump(command),
         });
     }
 
@@ -261,8 +314,28 @@ fn run_command(command: Command) {
             linkdata_path,
             needle,
         } => search_linkdata(&linkdata_path, &needle),
-        Command::LinkDataCostumeDump(config) => {
-            if let Err(error) = linkdata_costume_dump::run(config) {
+        Command::LinkDataInsertLawSlot(command) => {
+            if let Err(error) = linkdata_insert::run(command) {
+                eprintln!("{error}");
+                process::exit(1);
+            }
+        }
+        Command::LawSlot5AssetPackage => print_law_slot5_asset_package(),
+        Command::LawSlot5Preflight { linkdata_path } => print_law_slot5_preflight(&linkdata_path),
+        Command::LinkDataReferenceCsv(command) => {
+            if let Err(error) = linkdata_reference_csv::run(command) {
+                eprintln!("{error}");
+                process::exit(1);
+            }
+        }
+        Command::LinkDataStructDump(command) => {
+            if let Err(error) = linkdata_struct_dump::run(command) {
+                eprintln!("{error}");
+                process::exit(1);
+            }
+        }
+        Command::LinkDataEntryTriage(command) => {
+            if let Err(error) = linkdata_entry_triage::run(command) {
                 eprintln!("{error}");
                 process::exit(1);
             }
@@ -273,7 +346,120 @@ fn run_command(command: Command) {
                 process::exit(1);
             }
         }
+        Command::KidsDbDump(command) => {
+            if let Err(error) = kidsdb_dump::run(command) {
+                eprintln!("{error}");
+                process::exit(1);
+            }
+        }
     }
+}
+
+fn print_law_slot5_preflight(linkdata_path: &str) {
+    let linkdata = read_file_or_exit(linkdata_path, "LINKDATA preflight");
+    let plan = oppw4_linkdata_insert::LawSlotInsertPlan::law_slot5_layout_only();
+    let report = match oppw4_linkdata_insert::preflight_law_slot5(&linkdata, &plan) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("{error}");
+            process::exit(1);
+        }
+    };
+    println!(
+        "{{\"event\":\"law_slot5_preflight\",\"linkdata_path\":\"{}\",\"owner\":{},\"source_variant\":{},\"target_variant\":{},\"source_model\":{},\"target_model\":{},\"source_model_name\":{},\"target_model_name\":{},\"target_model_status\":\"{}\",\"layout_slot_patchable\":{},\"source_model_row\":{},\"target_model_row\":{},\"recommended_model_target\":{},\"asset_count\":{},\"texture_count\":{},\"requires_private_route\":{}}}",
+        json_str(linkdata_path),
+        report.owner,
+        report.source_variant,
+        report.target_variant,
+        report.source_model,
+        report.target_model,
+        json_option_str(report.source_model_name.as_deref()),
+        json_option_str(report.target_model_name.as_deref()),
+        model_target_status_name(report.target_model_status),
+        report.layout_slot_patchable,
+        json_model_row(report.source_model_row.as_ref()),
+        json_model_row(report.target_model_row.as_ref()),
+        json_option_u16(report.recommended_model_target),
+        report.asset_count,
+        report.texture_count,
+        report.requires_private_route
+    );
+}
+
+fn json_option_u16(value: Option<u16>) -> String {
+    value
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "null".to_string())
+}
+
+fn model_target_status_name(status: oppw4_linkdata_insert::ModelTargetStatus) -> &'static str {
+    match status {
+        oppw4_linkdata_insert::ModelTargetStatus::Ready => "ready",
+        oppw4_linkdata_insert::ModelTargetStatus::Available => "available",
+        oppw4_linkdata_insert::ModelTargetStatus::OccupiedByOther => "occupied_by_other",
+    }
+}
+
+fn json_option_str(value: Option<&str>) -> String {
+    value
+        .map(|value| format!("\"{}\"", json_str(value)))
+        .unwrap_or_else(|| "null".to_string())
+}
+
+fn json_model_row(row: Option<&oppw4_data_struct::entry35::ModelRow>) -> String {
+    let Some(row) = row else {
+        return "null".to_string();
+    };
+    format!(
+        "{{\"row\":{},\"offset\":\"0x{:x}\",\"owner\":{},\"relation\":{}}}",
+        row.row, row.offset, row.owner, row.relation
+    )
+}
+
+fn print_law_slot5_asset_package() {
+    let package = oppw4_linkdata_insert::law_slot5_base_law_kids_package();
+    println!(
+        "{{\"event\":\"law_slot5_asset_package\",\"owner\":{},\"source_variant\":{},\"target_variant\":{},\"source_model\":{},\"target_model\":{},\"preview_mapping\":{},\"preview_resource\":{},\"requires_private_route\":{},\"assets\":[{}]}}",
+        package.owner,
+        package.source_variant,
+        package.target_variant,
+        package.source_model,
+        package.target_model,
+        package.preview_mapping,
+        package.preview_resource,
+        package.requires_private_route,
+        package
+            .assets
+            .iter()
+            .map(|asset| {
+                format!(
+                    "{{\"archive\":\"{}\",\"name\":\"{}\",\"target_name\":\"{}\",\"hash\":\"0x{:08x}\",\"size\":{},\"sha256\":\"{}\",\"shared_official_hash\":{}}}",
+                    match asset.archive {
+                        oppw4_linkdata_insert::Archive::CharacterEditor => "CharacterEditor",
+                        oppw4_linkdata_insert::Archive::MaterialEditor => "MaterialEditor",
+                        oppw4_linkdata_insert::Archive::RRPreview => "RRPreview",
+                        oppw4_linkdata_insert::Archive::ScreenLayout => "ScreenLayout",
+                    },
+                    json_str(&asset.name),
+                    json_str(&asset.target_name),
+                    asset.hash,
+                    asset.size,
+                    asset.sha256,
+                    asset.shared_official_hash
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(",")
+    );
+}
+
+fn json_str(value: &str) -> String {
+    value
+        .replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\n', "\\n")
+        .replace('\r', "\\r")
+        .replace('\t', "\\t")
 }
 
 fn export_catalog(dll_path: &str, out_path: &str) {

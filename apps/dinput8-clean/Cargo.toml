@@ -1,0 +1,17 @@
+[package]
+name = "oppw4-dinput8-clean"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+name = "dinput8"
+
+[dependencies]
+oppw4-debug-tools.workspace = true
+oppw4-logging.workspace = true
+oppw4-research.workspace = true
+oppw4-rdb.workspace = true
+oppw4-script-mods.workspace = true
+zip.workspace = true

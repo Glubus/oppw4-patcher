@@ -1,4 +1,4 @@
-use std::{collections::HashMap, io::SeekFrom};
+use std::{collections::HashMap, io::SeekFrom, mem::size_of};
 
 use crate::{open_virtual_replacement, VirtualFile, VirtualReplacement};
 
@@ -59,6 +59,19 @@ impl VirtualHandleTable {
         self.files.contains_key(&handle)
     }
 
+    pub fn memory_ranges(&self) -> Vec<(usize, usize)> {
+        let mut ranges = Vec::new();
+        push_memory_range(
+            &mut ranges,
+            self as *const VirtualHandleTable as usize,
+            size_of::<VirtualHandleTable>(),
+        );
+        for file in self.files.values() {
+            ranges.extend(file.memory_ranges());
+        }
+        ranges
+    }
+
     fn allocate_handle(&mut self) -> VirtualHandle {
         let handle = VirtualHandle(self.next_id);
         self.next_id += 1;
@@ -80,4 +93,13 @@ impl Default for VirtualHandleTable {
 
 fn unknown_virtual_handle() -> std::io::Error {
     std::io::Error::new(std::io::ErrorKind::NotFound, "unknown virtual handle")
+}
+
+fn push_memory_range(ranges: &mut Vec<(usize, usize)>, start: usize, len: usize) {
+    if start == 0 || len == 0 {
+        return;
+    }
+    if let Some(end) = start.checked_add(len) {
+        ranges.push((start, end));
+    }
 }

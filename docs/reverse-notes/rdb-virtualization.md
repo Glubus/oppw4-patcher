@@ -903,6 +903,404 @@ Next parser step:
 - map exact compressed/uncompressed size fields
 - cross-check replacement hashes like `0x3b359352.g1m` against `CharacterEditor.rdb`
 
+## Private Model Entry Implication
+
+The Law slot 5 work proves a limit of the current RDB virtualizer: replacing an
+existing hash is not enough when the goal is a new costume slot. Existing hashes
+are global. If the custom slot reuses `MPLC026_Law.g1m`, base Law can be
+affected. If it reuses `MDLC033_Law_Souhi.g1m`, Souhi can be affected. If it
+reuses an unrelated live id, the game can crash before the custom file is even
+opened because the surrounding LinkData metadata still describes the original
+resource.
+
+The clean target is a private Law model/resource entry:
+
+- clone the source LinkData model row, probably entry `35` row `26`, into a
+  private id;
+- create or emulate a matching private model name in entry `32`, section `6`;
+- patch the injected costume variant `699` so its model/resource field points to
+  that private id;
+- create private RDB index entries for the model and material/texture assets;
+- serve the zip through those private RDB entries only.
+
+This requires one of two RDB-side capabilities:
+
+1. Patch the game's loaded RDB archive object in RAM and append a new `0x68`
+   entry to the parsed entry vector/hash table.
+2. Overlay the `.rdb` file reads so the game parses extra `IDRK` blocks as if
+   they were present in the original index.
+
+The existing external-flag patcher only edits entries that already exist, so it
+cannot by itself create the private Law model entry.
+
+## Law Row 292 Probe Result
+
+First RAM-first probe installed `2026-05-11 23:13` tried to clone LinkData entry
+`35` row `26` into row `292`, patch entry `32` section `6` row `292` to
+`MPLC026_Law`, and point variant `699` at model/resource id `292`.
+
+The user test log `2026-05-11_23-15-09.log` showed:
+
+```text
+Law private model row clone skipped source_row=26 target_row=292 reason=entry35_base_not_found
+```
+
+The first diagnostic build treated that as fatal, so the later slot injection
+patch did not run and slot 5 disappeared. Fallback build `2026-05-11 23:21`
+keeps the probe but falls back to model/resource id `26` when row `292` cannot
+be cloned, allowing slot 5 to stay visible while the real model registry
+location is investigated.
+
+Implication for the RDB overlay work:
+
+- do not assume the raw inflated entry `35` payload remains present as a
+  writable contiguous buffer;
+- either find the parsed model registry in RAM first, or use focused Ghidra to
+  locate the LinkData/model table loader;
+- private RDB index entries are still needed later, but only after the game can
+  resolve a private model/resource row.
+
+Follow-up probe `2026-05-11 23:35` uses the parsed model resource manager
+instead of raw entry `35`.
+
+Focused Ghidra export:
+
+```text
+oppw4-ghidra/game_resource_manager_targets.txt
+```
+
+Relevant game globals/functions:
+
+- model manager global `DAT_141eba7a0` at RVA `0x1eba7a0`;
+- `FUN_14016ce30` returns loaded resource pointer by id;
+- `FUN_14016ceb0`, `FUN_14016cf30`, and `FUN_14005ad10` check loaded,
+  unloaded, and busy states;
+- `FUN_14016dc20` enqueues the resource load;
+- state slots are addressed as `manager + id * 0x20`.
+
+The installed probe patches variant `699` to model/resource id `292`, then
+aliases model-manager requests for `292` back to source resource `26`. This is
+not final private RDB support, but it tests whether the costume/variant side can
+carry a private id while the model manager supplies a known-good resource.
+
+Result from `2026-05-11_23-39-08.log`:
+
+- no crash;
+- slot 5 stayed selectable;
+- official Law slots stayed intact;
+- slot 5 showed an empty/invisible character;
+- model-manager alias logs confirm `292 -> 26` enqueue/load/get calls worked.
+
+RDB implication:
+
+- creating a private model id is only one layer;
+- the variant's material/color-variation fields also need to reference valid
+  resources for the model to render;
+- next diagnostic copies base Law variant `57` material/color bytes into
+  variant `699` while keeping model id `292`;
+- if this fixes visibility, private RDB overlay must also cover those material
+  resources, not only the `.g1m`.
+
+Follow-up: copying base Law variant `57` color/material bytes did not fix the
+empty slot. The runtime bytes were `ffff/ffff/ffff/0000`, which means the first
+three variation ids are still default/invalid just like the official base Law
+path. The next diagnostic mirrors the model manager's internal entry for
+resource `26` into private resource id `292`. If that fixes visibility, the RDB
+overlay must create not only a private RDB name/hash but also a coherent runtime
+model manager entry for the private id.
+
+Follow-up result: the model-manager mirror worked and `manager.get(292)`
+returned a real resource pointer, but the slot remained empty. The next
+diagnostic hooks `FUN_1403ce790`, the render attach/binding function called
+after the model resource is loaded. This should tell whether a future private
+RDB overlay is blocked at resource resolution or at render-object attachment.
+
+Follow-up result from `2026-05-12_08-07-39.log`: the selection lookup reached
+custom variant `699`, but the scene/preview logs saturated before activation
+and no global/private render-attach trace fired. A new diagnostic installed
+`2026-05-12 08:19` preserves `scope=important` scene/list traces after the
+custom slot becomes active. RDB overlay work should wait for that next log:
+if the scene never switches to `699`, the blocker is still menu/preview state;
+if the scene switches but no attach fires, the attach target needs a focused
+Ghidra follow-up; if attach fires and fails, the blocker is render binding or
+resource/material compatibility.
+
+Follow-up result from `2026-05-12_08-21-18.log`: the scene and selected preview
+object do switch to `699/slot 4`, while model manager resource id `292` is
+already loaded. No render attach hook fired at `game+0x3ce790`. Focused Ghidra
+shows the menu preview path sends `preview_variant=699` directly into
+`FUN_14148b5f0`, so the next diagnostic hooks that helper. RDB overlay work
+should still wait: if `FUN_14148b5f0` takes the hide/default branch for `699`,
+the blocker is preview widget eligibility, not private RDB data yet.
+
+Follow-up result from `2026-05-12_17-52-47.log`: the helper hook confirmed that
+slot 5 reaches `FUN_14148b5f0` as `preview_variant=699`, but the game passes
+`visible=0`, layout `26`, fallback `0`, and the widget fields remain hidden or
+unchanged. The private model manager path is still working (`292` mirrors and
+loads from `26`). This keeps RDB overlay work on hold: before inventing private
+RDB index entries, the menu preview widget must be proven capable of rendering
+the already-loaded private resource id.
+
+Diagnostic installed `2026-05-12 18:04`: force only the current custom Law
+preview call to `effective_visible=1` and log `forced_visible`. If this makes
+the slot visible, the next work is the scene/menu eligibility flag that produces
+`visible=0`; if it does not, the next work is inside `FUN_14148bcc0` /
+`FUN_1416112e0` / `FUN_141613030`, still before private RDB overlay.
+
+Follow-up from `2026-05-12_18-08-55.log`: forcing `effective_visible=1` did not
+make a real preview model appear. It only changed the widget visible/active
+flags, produced a black post-select layout, and the game crashed when launching.
+The diagnostic was disabled in the `2026-05-12 18:21` installed build
+(`SHA256 A04417BA676ECFDEB7EECD5EBABD4D38721DFC8DACAF7F6C67918592DEC21B82`).
+RDB overlay work remains on hold: the current blocker is still higher-level
+costume/menu/prebattle state, with `FUN_141252cc0` now the focused crash target
+if launch still fails.
+
+Follow-up diagnostic installed `2026-05-12 18:35`: `FUN_141252cc0` is now hooked
+only for logging, with force-visible still disabled
+(`SHA256 822847F703584AD18F3904EE662D92AB5212924ABC030D91941F849B541A19AF`).
+Next logs should include `Launch costume state enter` and show whether the
+launch path receives private/custom id `699` in validation fields `id1d4`,
+`id1d0`, or `id1d8`. Do not resume private RDB overlay work until that confirms
+which launch/prebattle table needs the cloned private entry.
+
+Follow-up from `2026-05-12_18-41-52.log`: no `Launch costume state enter` line
+appeared, and the current blocker is still before private RDB overlay. The slot
+reaches the preview scene as `699`, model id `292` resolves through the manager
+alias, but `FUN_1414926a0` skips the normal visible/prep path because the
+scene-list flag byte it reads is zero. The relevant active entry had Law layout
+`26` at list slot `0`, `list_index=0`, and flags all zero.
+
+Diagnostic installed `2026-05-12 19:02`
+(`SHA256 F1BC115EBF77CC70FC69CB6A7015AC1281B2112AD908E0126E989611F60B77E3`)
+patches only that current custom Law scene-list flag byte before the original
+preview refresh. RDB overlay work remains on hold until a next log proves that
+the normal preview path can render the already-loaded model-manager resource.
+Search for `Law custom scene-list flag diagnostic`; best case is
+`patched=true before=0x00 after=0x01` followed by
+`preview_variant=699 visible=1 forced_visible=false`.
+
+Follow-up from `2026-05-12_19-08-24.log`: the scene-list patch did write the
+byte, but `preview_variant=699` still reached `visible=0`. The launch crash
+path is now the clearer blocker: `FUN_141252cc0` received `id1d0=292`,
+`id1d4=22`, `id1d8=65535`, `id1e4=4` immediately before crashing at the known
+`OPPW4.exe+0x1252DFB` validation failure. This means the private model id is
+also entering gameplay/launch state, not just menu preview state.
+
+Diagnostic installed `2026-05-12 19:21`
+(`SHA256 C938E4E65380C2FFD9490B0177A69636FA7221D35EFB25BD62C44EC2BE7766E5`)
+maps launch-state `id1d0=292` back to source id `26` only when slot `4` is
+active. This is a temporary safety/diagnostic alias. If it removes the
+in-game crash, future private RDB/model work must also include the
+launch/prebattle table that validates `id1d0`, not only the menu model-manager
+and RDB index paths.
+
+Follow-up from `2026-05-12_19-24-07.log`: the launch-state alias did remove the
+known top-level crash for that run, so the gameplay blocker around
+`FUN_141252cc0` is now understood well enough to keep moving. The remaining
+invisible-preview blocker was not private RDB resolution yet: the runtime
+published zero custom slot assets because the diagnostic build had disabled the
+dormant model/material alias plan. The incoming zip was valid and matched the
+Law slot manifest, but `MPLC026_Law.g1m` and the 8 Law base textures were
+discarded before RDB matching.
+
+Installed build `2026-05-12 19:33`
+(`SHA256 08270B64EBF1A1556544E149ADDDA5D655D1D81B6E5E5B521FC6F9F504FDD4D6`)
+re-enables the dormant alias plan:
+
+- `MPLC026_Law.g1m` -> `MDLC033_Law_Souhi.g1m`;
+- 8 `MPR_Bound_Character_MPLC026Law_*` textures ->
+  `MPR_Bound_Character_MDLC033LawSouhi_*`;
+- shared source assets remain disabled;
+- always-active dormant assets remain disabled.
+
+Expected next log should prove whether the current RDB-overlay-by-existing-entry
+path can serve the custom `.g1m`/`.g1t` files for only slot 5. If
+`custom=9 original_fallbacks=9` appears but preview remains invisible, then the
+blocker is again higher-level preview/state, not file ingestion. If hashes are
+missing or unresolved, resume with RDB catalog/name matching.
+
+Follow-up from `2026-05-12_19-38-01.log`: the zip ingestion did work:
+
+```text
+Law custom slot CharacterEditor: files=1 matched=1 hash_missing=0 unresolved=0
+Law custom slot MaterialEditor: files=8 matched=8 hash_missing=0 unresolved=0
+Law custom slot replacements ready: custom=9 original_fallbacks=9
+Law custom slot runtime published: custom=9 original_fallbacks=9
+```
+
+But the game crashed while entering the menu, and the user saw no slot 5
+image/sprite. Do not overstate this as official Law/Souhi/Oni slots crashing.
+The better interpretation is that the injected slot 5 UI/preview/resource path
+entered an incoherent state after the dormant shared RDB alias was enabled.
+
+The important pre-crash open was:
+
+```text
+Open virtual ... runtime=law-slot-original file=MDLC033_Law_Souhi.g1m
+hash=0xc7512008 prefix=0x68 mod_size=0x1267c4
+source=...\CharacterEditor.rdb.bin@0x0+0x1267c4
+```
+
+The scene was still selected on Law Oni (`selected_variant=586`,
+`selected_slot=3`), but later scene state showed the slot 5 object as
+`object_variant=699 object_slot=4`. No `DLC_COSTUME_006_699_026_004.bin`
+request appeared; the DLC requests remained for
+`DLC_COSTUME_006_586_026_003.bin`.
+
+Crash log:
+
+```text
+Unhandled Top-Level Exception (80000003)
+EXCEPTION_BREAKPOINT
+RIP Addr.: OPPW4.exe+00000000003D89FCh
+```
+
+Focused Ghidra export maps the breakpoint to `FUN_1403d8560`:
+
+```text
+TARGET 1403d89fc -> function FUN_1403d8560 @ 1403d8560
+...
+TEST RBX,RBX
+JNZ 0x1403d8a01
+...
+INT3
+```
+
+This looks like a generic resource construction/load failure path: if the
+resource pointer stays null after fallback attempts, the game intentionally
+breaks. The failed resource is not identified yet. It may be the slot image/UI
+asset, the preview model, or a texture dependency.
+
+Safety rollback installed `2026-05-12 19:53`
+(`SHA256 457C1E7F11BAC664149DB7B06AA6CAD3ACC4DB2609EA4B7338754BAAFFED816B`)
+disables both dormant model/material alias switches again. The next real RDB
+step is not "try the shared alias again"; it is either:
+
+- trace `FUN_1403d8560` parameters/stack to identify the exact null resource; or
+- trace/repair the slot 5 UI/DLC/image path so the menu has a valid image entry
+  before model/material aliasing is tested again; or
+- move directly to true private RDB/model entries so no shared dormant row is
+  used for slot 5 assets.
+
+Follow-up from `2026-05-12_20-12-44.log`: the rollback confirmed the UI/image
+side is safe again. Slot 5's image appears, there is no menu crash, but the
+hover preview model/texture remains invisible. Startup published
+`custom=0 original_fallbacks=0`, which is expected because the dormant
+model/material aliases are still disabled in the rollback.
+
+The active blocker is the preview visibility flag, not RDB ingestion:
+
+```text
+Costume preview model-update ... preview_variant=699 visible=0 effective_visible=0
+```
+
+Ghidra shows the previous scene-list flag diagnostic patched too early:
+`FUN_1414926a0` calls `FUN_141493820` to rebuild the scene list, and only then
+reads `entry + 0x3c + list_index`. New diagnostic installed `2026-05-12 20:25`
+hooks `FUN_141493820` at `game+0x1493820` and patches the Law slot 5 list flag
+after the rebuild returns.
+
+Installed hash:
+
+```text
+C84B77842B42BF5CBAE3178EC4C5D2EAAB89A7B7882038CF1FD0A0D4F5DFD96E
+backup D:\SteamLibrary\steamapps\common\OPPW4\dinput8.before-scene-list-rebuild-post-flag.20260512-202552.dll
+```
+
+Next log should be judged by:
+
+```text
+Law custom scene-list flag diagnostic phase=scene-list-rebuild-leave ... patched=true
+Costume preview model-update ... preview_variant=699 visible=1
+```
+
+Only after `visible=1` is proven should RDB custom assets be re-enabled again.
+
+Follow-up from `2026-05-12_20-30-17.log`: `visible=1` is now proven, but the
+game still shows `conditions de deblocage` for slot 5. This is not an RDB
+ingestion result yet: startup still published `custom=0 original_fallbacks=0`,
+so custom model/material assets remain disabled.
+
+The relevant blocker is now scene admission:
+
+```text
+Costume variant unlock-check category=26 variant=699 slot=4 ... result=1
+Costume scene scene-available-check ... result=0 ... selected_variant=699 selected_slot=4
+```
+
+Installed diagnostic `2026-05-12 20:42` forces only this scene admission check
+for Law slot 5:
+
+```text
+Costume scene scene-available-check ... result=0 effective_result=1 forced=true ...
+installed SHA-256 AC7E8B85D447EE4CA088E4A4B21F5255FDBE8F916C0F1FAA2FBA41F7ED3B1DCB
+backup D:\SteamLibrary\steamapps\common\OPPW4\dinput8.before-scene-available-force.20260512-204216.dll
+```
+
+Do not re-enable private/shared RDB model or material assets until this gate is
+understood. The next RDB step still needs a real private row/name path, not the
+old shared dormant alias.
+
+## Name Hash Follow-Up
+
+`FUN_6482cca0` is the name lookup path, but the current decompile shows it does
+not calculate the RDB `primary_hash` directly from the file name. In the linear
+catalog path, it compares the requested name against catalog strings, then calls
+`FUN_64829050(param_1, stored_hash)` with the hash stored beside the matched
+name. In the hashed catalog path, it hashes the name only to find the catalog
+bucket, then again calls `FUN_64829050` with the stored catalog hash.
+
+`FUN_648f5630(name, len, 0xc70f6907)` is the catalog bucket hash. It is a
+MurmurHash2-style 64-bit hash using multiplier `0x5bd1e995`, 8-byte little
+endian chunks, and a `>> 47` finalization. It does not match known RDB
+`primary_hash` values even when truncated to high or low 32 bits:
+
+- `MPLC026_Law.g1m`: catalog-bucket hash `0x61c8cb09a6796139`, RDB hash
+  `0x8df2d8cb`;
+- `800_294_face_law_dressrosa_External_00.g1t`: catalog-bucket hash
+  `0xda5f75c9d6485967`, RDB hash `0x359b9672`.
+
+So the RDB `primary_hash` is still a separate value sourced from the embedded
+name/hash catalog or the parsed RDB entry. A private asset name still needs
+either a known/derived RDB `primary_hash`, or a real appended RDB index entry
+whose `primary_hash` we choose and whose lookup path can reach it.
+
+### OPPW4.exe Hash Check, 2026-05-16
+
+Direct checks in `OPPW4.exe` did not find embedded Law asset names or known RDB
+primary hashes:
+
+- no `MPLC026_Law.g1m` string;
+- no `.g1m`, `.g1t`, `.kscl`, `.grp`, or `.mtl` asset-name strings in the exe;
+- no little-endian or big-endian occurrences of known Law/preview hashes such as
+  `0x8df2d8cb`, `0x966d6276`, `0x359b9672`, `0x3bff0f13`, or `0x386d71a0`.
+
+The exe does contain RDB archive names such as `CharacterEditor.rdb`,
+`MaterialEditor.rdb`, and `ScreenLayout.rdb`. The main string reference found so
+far is `FUN_1415fb060`, which loops through archive names and loads them from the
+game data path.
+
+The CRC polynomial `0xedb88320` exists at `OPPW4.exe+0x3bdb90`
+(`FUN_1403bdb60`), but the decompile shows a three-`u32` CRC-combine style
+helper, not a string-to-RDB-hash function. Ghidra currently shows only a data
+pointer reference to that helper, not a direct RDB asset lookup call.
+
+`FUN_1415fb060` also contains a simple string hash for project/shader resource
+names:
+
+```text
+acc += signed_char(name[i]) * (31 ** (i + 1))
+```
+
+This does not match known RDB primary hashes either; for example
+`MPLC026_Law.g1m` gives `0x1784098e`, not `0x8df2d8cb`.
+
+Current conclusion: `OPPW4.exe` is not embedding or deriving the Law RDB
+`primary_hash` from plain asset names in the obvious paths. For private slot-5
+assets, the practical path remains an actual RDB-visible entry/catalog mapping
+with a chosen/known primary hash, instead of relying on a hidden exe hash formula.
+
 ## Useful Scripts Created
 
 - `oppw4-ghidra/FindPatcherStrings.java`
@@ -911,3 +1309,9 @@ Next parser step:
   - Dumps selected function pseudo-code to console.
 - `oppw4-ghidra/ExportVirtualizationFunction.java`
   - Exports the virtualization function and key callees to `decompile_64803ed0.txt`.
+- `oppw4-ghidra/ExportResourceManagerTargets.java`
+  - Exports model resource manager functions to `game_resource_manager_targets.txt`.
+- `oppw4-ghidra/ExportGameHashTargets.java`
+  - Exports the focused `OPPW4.exe` CRC/hash candidate around `FUN_1403bdb60`.
+- `oppw4-ghidra/ExportGameRdbStringRefs.java`
+  - Exports `OPPW4.exe` references to `.rdb` archive-name strings.

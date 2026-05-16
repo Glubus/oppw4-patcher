@@ -79,6 +79,9 @@ humans and LLM agents.
 ## Current Runtime Contract
 
 - `dinput8.dll` is installed next to the OPPW4 executable.
+- For game testing, always build the DLL in release mode with
+  `cargo build --release -p oppw4-dinput8-proxy`, then place
+  `target/release/dinput8.dll` in `D:\SteamLibrary\steamapps\common\OPPW4`.
 - Loose mods use `OPPW4/mods/<ModName>/<ArchiveName>/<asset>`.
 - Old loose archive folders can be migrated as
   `OPPW4/mods/legacy/<ArchiveName>/<asset>`.
@@ -87,3 +90,10 @@ humans and LLM agents.
 - `OPPW4/mods/_oppw4/` is reserved for loader configuration and logs.
 - The name/hash catalog is embedded in the DLL by default and can be overridden
   with `OPPW4/mods/_oppw4/name_hash_catalog.txt` for debugging.
+## OPPW4 LinkData Gameplay Overrides
+
+- Do not use compressed LinkData rebuilds for gameplay tests. In this project,
+  generated `LINKDATA_A.BIN` files made with compressed rebuild mode have caused
+  black screens even when the logical data looked correct.
+- Use raw-expanded LinkData overrides for gameplay tests unless a future test
+  explicitly proves compressed output safe again.

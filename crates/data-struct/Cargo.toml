@@ -1,0 +1,8 @@
+[package]
+name = "oppw4-data-struct"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+oppw4-rdb.workspace = true

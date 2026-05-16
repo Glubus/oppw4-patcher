@@ -1,8 +1,15 @@
 [workspace]
 members = [
-    "apps/dinput8-proxy",
+    "apps/dinput8-clean",
     "apps/rdb-tool",
+    "crates/data-struct",
+    "crates/linkdata-insert",
+    "crates/oppw4-debug-tools",
+    "crates/oppw4-linkdata",
+    "crates/oppw4-logging",
+    "crates/oppw4-research",
     "crates/oppw4-rdb",
+    "crates/oppw4-script-mods",
 ]
 resolver = "2"
 
@@ -13,8 +20,16 @@ license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
 flate2 = "1.1.9"
+oppw4-linkdata = { path = "crates/oppw4-linkdata" }
+oppw4-data-struct = { path = "crates/data-struct" }
+oppw4-linkdata-insert = { path = "crates/linkdata-insert" }
+oppw4-debug-tools = { path = "crates/oppw4-debug-tools" }
+oppw4-logging = { path = "crates/oppw4-logging" }
+oppw4-research = { path = "crates/oppw4-research" }
 oppw4-rdb = { path = "crates/oppw4-rdb" }
+oppw4-script-mods = { path = "crates/oppw4-script-mods" }
 tracing = "0.1"
 tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 zip = { version = "2", default-features = false, features = ["deflate"] }
+mlua = { version = "0.10", features = ["lua54", "vendored"] }

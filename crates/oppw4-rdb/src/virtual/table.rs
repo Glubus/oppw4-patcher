@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{mem::size_of, path::PathBuf};
 
 use crate::{parse_block_tail, ArchiveScan, ModAsset, ReplacementSource};
 
@@ -33,6 +33,39 @@ pub struct VirtualReplacementFile {
     pub mod_size: u64,
 }
 
+impl VirtualReplacement {
+    pub fn memory_ranges(&self) -> Vec<(usize, usize)> {
+        let mut ranges = Vec::new();
+        push_memory_range(
+            &mut ranges,
+            self as *const VirtualReplacement as usize,
+            size_of::<VirtualReplacement>(),
+        );
+        push_memory_range(
+            &mut ranges,
+            self.archive_name.as_ptr() as usize,
+            self.archive_name.len(),
+        );
+        push_memory_range(
+            &mut ranges,
+            self.file_name.as_ptr() as usize,
+            self.file_name.len(),
+        );
+        if let Some(original_tail) = self.original_tail.as_ref() {
+            push_memory_range(
+                &mut ranges,
+                original_tail.as_ptr() as usize,
+                original_tail.len(),
+            );
+        }
+        if let Some(prefix) = self.virtual_prefix.as_ref() {
+            push_memory_range(&mut ranges, prefix.as_ptr() as usize, prefix.len());
+        }
+        ranges.extend(self.source.memory_ranges());
+        ranges
+    }
+}
+
 pub fn attach_mod_file_sizes(
     replacements: Vec<VirtualReplacement>,
 ) -> std::io::Result<Vec<VirtualReplacement>> {
@@ -63,6 +96,15 @@ fn attach_mod_file_size(
 ) -> std::io::Result<VirtualReplacement> {
     replacement.mod_size = Some(replacement.source.payload_size()?);
     Ok(replacement)
+}
+
+fn push_memory_range(ranges: &mut Vec<(usize, usize)>, start: usize, len: usize) {
+    if start == 0 || len == 0 {
+        return;
+    }
+    if let Some(end) = start.checked_add(len) {
+        ranges.push((start, end));
+    }
 }
 
 pub fn build_virtualization_table(

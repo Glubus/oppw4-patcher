@@ -37,12 +37,70 @@ pub enum RdbError {
     TruncatedBlock { offset: usize, length: u32 },
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RdbAppendSpec {
+    pub template_hash: u32,
+    pub private_hash: u32,
+    pub virtual_bin_suffix: String,
+    pub payload_size: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RdbAppendError {
+    Parse(RdbError),
+    MissingTemplateHash(u32),
+    TemplateHasNoAddressTail(u32),
+    SizeTooLarge(u64),
+    BlockTooLarge(usize),
+    CountOverflow(u32),
+}
+
 pub fn parse_rdb(bytes: &[u8]) -> Result<RdbIndex, RdbError> {
     validate_root(bytes)?;
     let header = parse_header(bytes)?;
     let blocks = parse_blocks(bytes, header.first_block_offset as usize)?;
 
     Ok(RdbIndex { header, blocks })
+}
+
+pub fn append_virtual_rdb_entry(
+    bytes: &[u8],
+    spec: RdbAppendSpec,
+) -> Result<Vec<u8>, RdbAppendError> {
+    let index = parse_rdb(bytes).map_err(RdbAppendError::Parse)?;
+    let template = index
+        .blocks
+        .iter()
+        .find(|block| block.primary_hash == spec.template_hash)
+        .ok_or(RdbAppendError::MissingTemplateHash(spec.template_hash))?;
+    let new_block = build_virtual_block(template, &spec)?;
+    let new_count = index
+        .header
+        .declared_count
+        .checked_add(1)
+        .ok_or(RdbAppendError::CountOverflow(index.header.declared_count))?;
+
+    let mut blocks = index
+        .blocks
+        .iter()
+        .map(|block| block.raw.clone())
+        .collect::<Vec<_>>();
+    let insert_at = index
+        .blocks
+        .iter()
+        .position(|block| block.primary_hash > spec.private_hash)
+        .unwrap_or(blocks.len());
+    blocks.insert(insert_at, new_block);
+
+    let mut patched = bytes[..index.header.first_block_offset as usize].to_vec();
+    patched[0x10..0x14].copy_from_slice(&new_count.to_le_bytes());
+    for block in blocks {
+        patched.extend_from_slice(&block);
+        while patched.len() % 4 != 0 {
+            patched.push(0);
+        }
+    }
+    Ok(patched)
 }
 
 fn validate_root(bytes: &[u8]) -> Result<(), RdbError> {
@@ -113,4 +171,35 @@ fn parse_block(bytes: &[u8], offset: usize) -> Result<RdbBlock, RdbError> {
         payload: bytes[offset + 0x30..end].to_vec(),
         raw: bytes[offset..end].to_vec(),
     })
+}
+
+fn build_virtual_block(
+    template: &RdbBlock,
+    spec: &RdbAppendSpec,
+) -> Result<Vec<u8>, RdbAppendError> {
+    let address_len = template.field_10 as usize;
+    if address_len == 0 || address_len > template.raw.len() {
+        return Err(RdbAppendError::TemplateHasNoAddressTail(
+            template.primary_hash,
+        ));
+    }
+    if spec.payload_size > u32::MAX as u64 {
+        return Err(RdbAppendError::SizeTooLarge(spec.payload_size));
+    }
+
+    let prefix_len = template.raw.len() - address_len;
+    let tail = format!("0@{:x}#{}", spec.payload_size, spec.virtual_bin_suffix);
+    let new_len = prefix_len + tail.len() + 1;
+    let new_len_u32 = u32::try_from(new_len).map_err(|_| RdbAppendError::BlockTooLarge(new_len))?;
+    let address_len_u32 =
+        u32::try_from(tail.len() + 1).map_err(|_| RdbAppendError::BlockTooLarge(tail.len() + 1))?;
+
+    let mut block = template.raw[..prefix_len].to_vec();
+    block[0x08..0x0c].copy_from_slice(&new_len_u32.to_le_bytes());
+    block[0x10..0x14].copy_from_slice(&address_len_u32.to_le_bytes());
+    block[0x18..0x1c].copy_from_slice(&0u32.to_le_bytes());
+    block[0x24..0x28].copy_from_slice(&spec.private_hash.to_le_bytes());
+    block.extend_from_slice(tail.as_bytes());
+    block.push(0);
+    Ok(block)
 }

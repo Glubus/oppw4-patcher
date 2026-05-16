@@ -20,30 +20,42 @@ pub struct DumpConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct CostumeDatabase {
+    pub(crate) owners: Vec<OwnerDump>,
+    pub(crate) layouts: Vec<CostumeLayout>,
+    pub(crate) entry58: Vec<u8>,
+    pub(crate) entry39: Vec<u8>,
+    pub(crate) model_row_count: usize,
+    pub(crate) section6_count: usize,
+    pub(crate) section6_names: Vec<String>,
+    pub(crate) section7_count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct StringRegistry {
     sections: Vec<Vec<String>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct CostumeLayout {
-    suffix: u32,
-    section7_id: usize,
-    name: String,
+pub(crate) struct CostumeLayout {
+    pub(crate) suffix: u32,
+    pub(crate) section7_id: usize,
+    pub(crate) name: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct DlcCostume {
-    code: String,
-    character_id: u32,
-    costume_index: u32,
+pub(crate) struct DlcCostume {
+    pub(crate) code: String,
+    pub(crate) character_id: u32,
+    pub(crate) costume_index: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct ModelRow {
-    row: usize,
-    name: String,
-    owner: i16,
-    relation: i16,
+pub(crate) struct ModelRow {
+    pub(crate) row: usize,
+    pub(crate) name: String,
+    pub(crate) owner: i16,
+    pub(crate) relation: i16,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -59,13 +71,13 @@ struct CostumeParamRow {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct OwnerDump {
-    owner_id: u32,
-    owner_name: String,
-    stem: String,
-    model_rows: Vec<ModelRow>,
-    layouts: Vec<CostumeLayout>,
-    dlc_costumes: Vec<DlcCostume>,
+pub(crate) struct OwnerDump {
+    pub(crate) owner_id: u32,
+    pub(crate) owner_name: String,
+    pub(crate) stem: String,
+    pub(crate) model_rows: Vec<ModelRow>,
+    pub(crate) layouts: Vec<CostumeLayout>,
+    pub(crate) dlc_costumes: Vec<DlcCostume>,
 }
 
 pub fn parse_command(mut args: impl Iterator<Item = String>) -> Result<DumpConfig, String> {
@@ -91,6 +103,26 @@ pub fn parse_command(mut args: impl Iterator<Item = String>) -> Result<DumpConfi
 }
 
 pub fn run(config: DumpConfig) -> Result<(), String> {
+    let database = load_database_with_config(&config)?;
+
+    println!(
+        "{{\"event\":\"costume_dump\",\"linkdata_path\":\"{}\",\"owners\":{}}}",
+        json_str(&config.linkdata_path),
+        owners_json(&database.owners, &database.entry58, &database.entry39)
+    );
+
+    Ok(())
+}
+
+pub(crate) fn load_database(linkdata_path: &str) -> Result<CostumeDatabase, String> {
+    load_database_with_config(&DumpConfig {
+        linkdata_path: linkdata_path.to_string(),
+        owner_filter: None,
+        name_contains: None,
+    })
+}
+
+fn load_database_with_config(config: &DumpConfig) -> Result<CostumeDatabase, String> {
     let linkdata = fs::read(&config.linkdata_path)
         .map_err(|error| format!("failed to read LINKDATA {}: {error}", config.linkdata_path))?;
     let entries = parse_linkdata(&linkdata).map_err(|error| {
@@ -108,21 +140,23 @@ pub fn run(config: DumpConfig) -> Result<(), String> {
         &entries.entries,
         ENTRY_DLC,
     )?);
-    let model_rows = parse_model_rows(
-        &inflate_required_entry(&linkdata, &entries.entries, ENTRY_MODELS)?,
-        &registry,
-    );
+    let model_entry = inflate_required_entry(&linkdata, &entries.entries, ENTRY_MODELS)?;
+    let model_row_count = read_u32(&model_entry, 0).unwrap_or(0) as usize;
+    let model_rows = parse_model_rows(&model_entry, &registry);
     let entry58 = inflate_required_entry(&linkdata, &entries.entries, ENTRY_COSTUME_SECTIONS)?;
     let entry39 = inflate_required_entry(&linkdata, &entries.entries, ENTRY_COSTUME_PARAMS)?;
     let owners = build_owner_dumps(&config, &registry, model_rows, &layouts, &dlc_costumes);
 
-    println!(
-        "{{\"event\":\"costume_dump\",\"linkdata_path\":\"{}\",\"owners\":{}}}",
-        json_str(&config.linkdata_path),
-        owners_json(&owners, &entry58, &entry39)
-    );
-
-    Ok(())
+    Ok(CostumeDatabase {
+        owners,
+        layouts,
+        entry58,
+        entry39,
+        model_row_count,
+        section6_count: registry.sections.get(6).map_or(0, Vec::len),
+        section6_names: registry.sections.get(6).cloned().unwrap_or_default(),
+        section7_count: registry.sections.get(7).map_or(0, Vec::len),
+    })
 }
 
 fn inflate_required_entry(

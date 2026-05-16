@@ -1,0 +1,9 @@
+[package]
+name = "oppw4-script-mods"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+mlua.workspace = true
+zip.workspace = true

@@ -1,0 +1,9 @@
+[package]
+name = "oppw4-linkdata-insert"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+oppw4-data-struct.workspace = true
+oppw4-rdb.workspace = true

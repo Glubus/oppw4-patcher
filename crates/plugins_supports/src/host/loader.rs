@@ -12,9 +12,9 @@ use super::{ffi, logs, manifest::PluginManifest, win};
 
 static LOADED: OnceLock<Mutex<Vec<LoadedPlugin>>> = OnceLock::new();
 
-pub fn initialize(game_root: &Path, plugin_root: &Path) {
+pub fn initialize(game_root: &Path, plugin_root: &Path, session_stamp: Option<String>) {
     let _ = fs::create_dir_all(plugin_root);
-    logs::initialize();
+    logs::initialize(session_stamp);
     let _ = LOADED.set(Mutex::new(Vec::new()));
 
     load_plugins(game_root, plugin_root);
@@ -71,16 +71,13 @@ unsafe fn load_plugin(game_root: &Path, manifest: &PluginManifest) -> bool {
     }
 
     let init: PluginInitFn = std::mem::transmute(proc);
-    let game_root_utf8 = ffi::cstring_lossy(&game_root.to_string_lossy());
-    let plugin_root_utf8 = ffi::cstring_lossy(&manifest.root.to_string_lossy());
-    let plugin_mods_root_utf8 = ffi::cstring_lossy(&manifest.mods_root.to_string_lossy());
-    let api_context = ffi::ApiContext::new(manifest.mods_root.clone());
+    let api_state = PluginApiState::new(game_root, manifest);
     let api = ffi::build_api(
         game_root,
-        &game_root_utf8,
-        &plugin_root_utf8,
-        &plugin_mods_root_utf8,
-        &api_context,
+        &api_state.game_root_utf8,
+        &api_state.plugin_root_utf8,
+        &api_state.plugin_mods_root_utf8,
+        &api_state.context,
     );
     let result = init(&api);
     if result != 0 {
@@ -100,6 +97,7 @@ unsafe fn load_plugin(game_root: &Path, manifest: &PluginManifest) -> bool {
                 _id: manifest.id.clone(),
                 _path: manifest.entry_path.clone(),
                 _module: module as usize,
+                _api_state: api_state,
             });
     }
     log::write_line(format!(
@@ -120,4 +118,23 @@ struct LoadedPlugin {
     _id: String,
     _path: PathBuf,
     _module: usize,
+    _api_state: PluginApiState,
+}
+
+struct PluginApiState {
+    game_root_utf8: std::ffi::CString,
+    plugin_root_utf8: std::ffi::CString,
+    plugin_mods_root_utf8: std::ffi::CString,
+    context: ffi::ApiContext,
+}
+
+impl PluginApiState {
+    fn new(game_root: &Path, manifest: &PluginManifest) -> Self {
+        Self {
+            game_root_utf8: ffi::cstring_lossy(&game_root.to_string_lossy()),
+            plugin_root_utf8: ffi::cstring_lossy(&manifest.root.to_string_lossy()),
+            plugin_mods_root_utf8: ffi::cstring_lossy(&manifest.mods_root.to_string_lossy()),
+            context: ffi::ApiContext::new(manifest.mods_root.clone()),
+        }
+    }
 }

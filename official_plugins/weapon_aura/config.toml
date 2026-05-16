@@ -1,0 +1,31 @@
+[aura]
+enabled = true
+# scan_only = do not patch code, just verify signatures/timing safely.
+# patch = install hooks.
+install_mode = "patch"
+# auto = install after delay; hotkey = wait for key after delay before patching.
+trigger = "auto"
+# F8 by default. Cheat Engine used C, but C is too easy to press during normal play.
+hotkey_vk = 0x77
+# all = do not use LocalPlayerHook; local_player = CE-style rdi == localplayer+0x460.
+target = "all"
+effect_id = 2810
+# true = replace the observed effect id with effect_id.
+# false = observe/log natural ids only.
+force_effect_id = true
+# false = pure trampoline passthrough when force_effect_id is false.
+# true = log natural ids from inside the hook.
+observe_effect_ids = false
+# true = log candidate character/player fields. Diagnostic only.
+observe_character_probe = true
+animation_speed = 0.6
+loop_start = 0.1
+loop_end = 1.9
+install_delay_ms = 0
+# none = install immediately after delay/hotkey.
+# virtual_resource = wait until hashed data files start loading.
+# dlc_character = wait until character roster/DLC character files are seen.
+wait_for = "none"
+# Reload runtime values from this file while the game is running.
+# Set to 0 to disable live refresh.
+refresh_interval_ms = 500

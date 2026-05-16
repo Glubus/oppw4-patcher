@@ -30,6 +30,7 @@ pub unsafe fn write_memory(address: usize, bytes: *const u8, len: usize) -> i32 
         return -2;
     }
     ptr::copy_nonoverlapping(bytes, address as *mut u8, len);
+    let _ = win::flush_instruction_cache(address as *const c_void, len);
     let _ = win::restore_memory_protection(address as *mut c_void, len, old_protect);
     0
 }

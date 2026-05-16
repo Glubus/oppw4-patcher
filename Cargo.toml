@@ -7,6 +7,7 @@ members = [
     "crates/oppw4-rdb",
     "crates/plugins_supports",
     "official_plugins/skin_patcher",
+    "official_plugins/weapon_aura",
 ]
 resolver = "2"
 

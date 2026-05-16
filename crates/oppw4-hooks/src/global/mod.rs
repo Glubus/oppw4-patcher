@@ -739,6 +739,7 @@ fn dispatch_patch_read(path: &str, os_handle: usize, read_offset: u64, buffer: &
 }
 
 fn log_create_file_candidate(path: &str, desired_access: Dword, creation_disposition: Dword) {
+    crate::mark_file_open(path);
     if CREATE_FILE_LOGS.load(Ordering::Relaxed) >= 320 {
         return;
     }

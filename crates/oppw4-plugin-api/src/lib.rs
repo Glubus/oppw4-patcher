@@ -3,8 +3,18 @@ use std::{
     ptr,
 };
 
-pub const OPPW4_PLUGIN_API_VERSION: u32 = 6;
+pub const OPPW4_PLUGIN_API_VERSION: u32 = 7;
 pub const OPPW4_PLUGIN_INIT_SYMBOL: &[u8] = b"oppw4_plugin_init\0";
+
+pub const OPPW4_GAME_PHASE_UNKNOWN: u32 = 0;
+pub const OPPW4_GAME_PHASE_BOOTING: u32 = 1;
+pub const OPPW4_GAME_PHASE_RDB_LOADING: u32 = 2;
+pub const OPPW4_GAME_PHASE_RDB_BIN_LOADING: u32 = 3;
+pub const OPPW4_GAME_PHASE_DLC_CHARACTER_LOADING: u32 = 4;
+pub const OPPW4_GAME_PHASE_VIRTUAL_RESOURCE_LOADING: u32 = 5;
+
+pub const OPPW4_GAME_FLAG_DLC_CHARACTER_SEEN: u32 = 1 << 0;
+pub const OPPW4_GAME_FLAG_VIRTUAL_RESOURCE_SEEN: u32 = 1 << 1;
 
 pub type PluginInitFn = unsafe extern "system" fn(api: *const Oppw4PluginApi) -> i32;
 pub type HostLogFn =
@@ -37,6 +47,8 @@ pub type HostForEachPluginModZipFn = unsafe extern "system" fn(
 ) -> i32;
 pub type HostRegisterFileProviderFn =
     unsafe extern "system" fn(host_context: *mut c_void, provider: *const Oppw4FileProvider) -> i32;
+pub type HostGameStatusFn =
+    unsafe extern "system" fn(host_context: *mut c_void, out_status: *mut Oppw4GameStatus) -> i32;
 
 pub type Oppw4ProviderOpenPathFn = unsafe extern "system" fn(
     provider_context: *mut c_void,
@@ -94,6 +106,7 @@ pub struct Oppw4PluginApi {
     pub scan_memory: Option<HostScanMemoryFn>,
     pub for_each_plugin_mod_zip: Option<HostForEachPluginModZipFn>,
     pub register_file_provider: Option<HostRegisterFileProviderFn>,
+    pub game_status: Option<HostGameStatusFn>,
 }
 
 #[repr(C)]
@@ -115,6 +128,15 @@ pub struct Oppw4FileProvider {
     pub file_time: Option<Oppw4ProviderFileTimeFn>,
     pub seek: Option<Oppw4ProviderSeekFn>,
     pub patch_read: Option<Oppw4ProviderPatchReadFn>,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Oppw4GameStatus {
+    pub phase: u32,
+    pub flags: u32,
+    pub observed_file_opens: u32,
+    pub seconds_since_host_start: u32,
 }
 
 impl Oppw4PluginApi {
@@ -188,6 +210,13 @@ impl Oppw4PluginApi {
         };
         unsafe { register(self.host_context, provider) }
     }
+
+    pub fn game_status(&self) -> Option<Oppw4GameStatus> {
+        let status = self.game_status?;
+        let mut out = Oppw4GameStatus::default();
+        let result = unsafe { status(self.host_context, &mut out) };
+        (result == 0).then_some(out)
+    }
 }
 
 pub fn cstring_lossy(value: impl AsRef<str>) -> CString {
@@ -233,6 +262,7 @@ pub const fn null_api() -> Oppw4PluginApi {
         scan_memory: None,
         for_each_plugin_mod_zip: None,
         register_file_provider: None,
+        game_status: None,
     }
 }
 
@@ -290,6 +320,7 @@ mod tests {
             scan_memory: None,
             for_each_plugin_mod_zip: None,
             register_file_provider: None,
+            game_status: None,
         };
         let plugin = cstring_lossy("skin_patcher");
         let message = cstring_lossy("hello");
@@ -317,6 +348,7 @@ mod tests {
             scan_memory: None,
             for_each_plugin_mod_zip: Some(visit_mod_zips),
             register_file_provider: None,
+            game_status: None,
         };
 
         assert_eq!(

@@ -8,11 +8,12 @@ use std::{
 };
 
 use super::manifest::sanitize_plugin_id;
+use super::time;
 
 static ROUTER: OnceLock<Mutex<PluginLogRouter>> = OnceLock::new();
 
-pub(crate) fn initialize() {
-    let _ = ROUTER.set(Mutex::new(PluginLogRouter::new()));
+pub(crate) fn initialize(session_stamp: Option<String>) {
+    let _ = ROUTER.set(Mutex::new(PluginLogRouter::new(session_stamp)));
 }
 
 pub(crate) fn register(plugin_id: String, log_root: PathBuf) {
@@ -34,13 +35,15 @@ pub(crate) fn write(plugin_id: &CStr, message: &CStr) {
 }
 
 struct PluginLogRouter {
+    session_stamp: String,
     roots: HashMap<String, PathBuf>,
     files: HashMap<String, File>,
 }
 
 impl PluginLogRouter {
-    fn new() -> Self {
+    fn new(session_stamp: Option<String>) -> Self {
         Self {
+            session_stamp: session_stamp.unwrap_or_else(time::file_timestamp),
             roots: HashMap::new(),
             files: HashMap::new(),
         }
@@ -55,8 +58,10 @@ impl PluginLogRouter {
     fn write(&mut self, plugin_id: &CStr, message: &CStr) -> std::io::Result<()> {
         let plugin_id = sanitize_plugin_id(&plugin_id.to_string_lossy());
         let message = message.to_string_lossy();
+        tracing::info!(plugin_id = %plugin_id, "plugin: {message}");
+        let timestamp = time::line_timestamp();
         let file = self.file_for(&plugin_id)?;
-        writeln!(file, "{message}")?;
+        writeln!(file, "[{timestamp}] {message}")?;
         file.flush()
     }
 
@@ -68,7 +73,7 @@ impl PluginLogRouter {
                 .cloned()
                 .unwrap_or_else(|| PathBuf::from("plugins").join(plugin_id).join("logs"));
             fs::create_dir_all(&root)?;
-            let path = root.join(format!("{plugin_id}.log"));
+            let path = root.join(format!("{}.log", self.session_stamp));
             let file = OpenOptions::new().create(true).append(true).open(path)?;
             self.files.insert(plugin_id.to_string(), file);
         }
@@ -88,7 +93,7 @@ mod tests {
     #[test]
     fn plugin_logs_are_routed_to_registered_plugin_folder() {
         let root = temp_root("plugin-log-routing");
-        let mut router = PluginLogRouter::new();
+        let mut router = PluginLogRouter::new(Some("2026-05-16-201122".to_string()));
         router.register(
             "skin_patcher".to_string(),
             root.join("skin_patcher").join("logs"),
@@ -108,15 +113,15 @@ mod tests {
             fs::read_to_string(
                 root.join("skin_patcher")
                     .join("logs")
-                    .join("skin_patcher.log")
+                    .join("2026-05-16-201122.log")
             )
             .expect("skin log file"),
-            "skin online\n"
+            "[2026-05-16 20:11:22] skin online\n"
         );
         assert_eq!(
-            fs::read_to_string(root.join("fx_tools").join("logs").join("fx_tools.log"))
+            fs::read_to_string(root.join("fx_tools").join("logs").join("2026-05-16-201122.log"))
                 .expect("fx log file"),
-            "fx online\n"
+            "[2026-05-16 20:11:22] fx online\n"
         );
         let _ = fs::remove_dir_all(root);
     }
@@ -124,7 +129,7 @@ mod tests {
     #[test]
     fn plugin_log_file_names_are_sanitized() {
         let root = temp_root("plugin-log-sanitize");
-        let mut router = PluginLogRouter::new();
+        let mut router = PluginLogRouter::new(Some("2026-05-16-201122".to_string()));
         router.register(
             "../skin patcher.dll".to_string(),
             root.join("skin_patcher_dll").join("logs"),
@@ -139,12 +144,12 @@ mod tests {
             fs::read_to_string(
                 root.join("skin_patcher_dll")
                     .join("logs")
-                    .join("skin_patcher_dll.log")
+                    .join("2026-05-16-201122.log")
             )
             .expect("sanitized log file"),
-            "clean path\n"
+            "[2026-05-16 20:11:22] clean path\n"
         );
-        assert!(!root.join("..").join("skin patcher.dll.log").exists());
+        assert!(!root.join("..").join("2026-05-16-201122.log").exists());
         let _ = fs::remove_dir_all(root);
     }
 

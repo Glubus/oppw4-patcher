@@ -23,7 +23,7 @@ fn initialize_loader_thread(base_dir: PathBuf) {
     plugins_supports::set_logger(write_plugin_log);
     let paths = LoaderPaths::from_base_dir(base_dir);
     log_loader_paths(&paths);
-    plugins_supports::initialize(&paths.game_root, &paths.plugin_root);
+    plugins_supports::initialize(&paths.game_root, &paths.plugin_root, log::session_stamp());
 }
 
 fn write_hook_log(message: String) {

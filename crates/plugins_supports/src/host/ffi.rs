@@ -5,7 +5,7 @@ use std::{
 
 use oppw4_plugin_api::{
     optional_cstr, HostPluginModZipVisitorFn, Oppw4FileProvider, Oppw4LogEntry, Oppw4PluginApi,
-    OPPW4_PLUGIN_API_VERSION,
+    Oppw4GameStatus, OPPW4_PLUGIN_API_VERSION,
 };
 
 use super::{logs, mods};
@@ -41,6 +41,7 @@ pub(crate) fn build_api(
         scan_memory: Some(host_scan_memory),
         for_each_plugin_mod_zip: Some(host_for_each_plugin_mod_zip),
         register_file_provider: Some(host_register_file_provider),
+        game_status: Some(host_game_status),
     }
 }
 
@@ -103,6 +104,17 @@ unsafe extern "system" fn host_scan_memory(
     len: usize,
 ) -> usize {
     oppw4_hooks::scan_memory(pattern, mask, len)
+}
+
+unsafe extern "system" fn host_game_status(
+    _host_context: *mut c_void,
+    out_status: *mut Oppw4GameStatus,
+) -> i32 {
+    let Some(out_status) = out_status.as_mut() else {
+        return -1;
+    };
+    *out_status = oppw4_hooks::game_status();
+    0
 }
 
 unsafe extern "system" fn host_for_each_plugin_mod_zip(

@@ -1,5 +1,6 @@
 mod loader;
 mod log;
+mod time;
 mod win;
 
 use std::ffi::c_void;

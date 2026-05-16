@@ -29,7 +29,7 @@ fn initialize_loader_thread(base_dir: PathBuf) {
     hooks::install_main_module_hooks();
     let paths = LoaderPaths::from_base_dir(base_dir);
     log_loader_paths(&paths);
-    plugin_host::initialize(&paths.plugin_root, &paths.plugin_log_root);
+    plugin_host::initialize(&paths.plugin_root);
     let catalog = load_name_catalog(&paths);
     let replacements = scan_known_archives(&paths, &catalog);
     hooks::publish_replacements(replacements);
@@ -40,7 +40,6 @@ struct LoaderPaths {
     mods_root: PathBuf,
     config_root: PathBuf,
     plugin_root: PathBuf,
-    plugin_log_root: PathBuf,
     rdb_root: PathBuf,
 }
 
@@ -50,8 +49,7 @@ impl LoaderPaths {
         Self {
             game_root: base_dir.clone(),
             config_root: mods_root.join("_oppw4"),
-            plugin_root: mods_root.join("_oppw4").join("plugins"),
-            plugin_log_root: mods_root.join("_oppw4").join("plugin_logs"),
+            plugin_root: base_dir.join("plugins"),
             mods_root,
             rdb_root: base_dir
                 .join("File")
@@ -67,10 +65,6 @@ fn log_loader_paths(paths: &LoaderPaths) {
     log::write_line(format!("mods root: {}", paths.mods_root.display()));
     log::write_line(format!("config root: {}", paths.config_root.display()));
     log::write_line(format!("plugin root: {}", paths.plugin_root.display()));
-    log::write_line(format!(
-        "plugin log root: {}",
-        paths.plugin_log_root.display()
-    ));
     log::write_line(format!("rdb root: {}", paths.rdb_root.display()));
 }
 
@@ -303,13 +297,6 @@ mod tests {
             paths.config_root,
             PathBuf::from(r"D:\Game\OPPW4\mods\_oppw4")
         );
-        assert_eq!(
-            paths.plugin_root,
-            PathBuf::from(r"D:\Game\OPPW4\mods\_oppw4\plugins")
-        );
-        assert_eq!(
-            paths.plugin_log_root,
-            PathBuf::from(r"D:\Game\OPPW4\mods\_oppw4\plugin_logs")
-        );
+        assert_eq!(paths.plugin_root, PathBuf::from(r"D:\Game\OPPW4\plugins"));
     }
 }

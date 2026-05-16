@@ -1,0 +1,3 @@
+[plugin]
+id = "skin_patcher"
+entry = "skin_patcher.dll"

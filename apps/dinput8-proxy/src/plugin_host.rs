@@ -17,12 +17,9 @@ use crate::{log, win};
 static PLUGIN_LOGS: OnceLock<Mutex<PluginLogRouter>> = OnceLock::new();
 static LOADED_PLUGINS: OnceLock<Mutex<Vec<LoadedPlugin>>> = OnceLock::new();
 
-pub fn initialize(plugin_root: &Path, plugin_log_root: &Path) {
+pub fn initialize(plugin_root: &Path) {
     let _ = fs::create_dir_all(plugin_root);
-    let _ = fs::create_dir_all(plugin_log_root);
-    let _ = PLUGIN_LOGS.set(Mutex::new(PluginLogRouter::new(
-        plugin_log_root.to_path_buf(),
-    )));
+    let _ = PLUGIN_LOGS.set(Mutex::new(PluginLogRouter::new()));
     let _ = LOADED_PLUGINS.set(Mutex::new(Vec::new()));
 
     load_plugins(plugin_root);
@@ -39,30 +36,40 @@ fn load_plugins(plugin_root: &Path) {
 
     let mut loaded = 0usize;
     for entry in entries.flatten() {
-        let path = entry.path();
-        if !is_plugin_dll(&path) {
+        let plugin_dir = entry.path();
+        if !plugin_dir.is_dir() {
             continue;
         }
-        if unsafe { load_plugin(&path) } {
+        let Some(manifest) = PluginManifest::read_from_dir(&plugin_dir) else {
+            continue;
+        };
+        if unsafe { load_plugin(&manifest) } {
             loaded += 1;
         }
     }
     log::write_line(format!("plugin host: loaded={loaded}"));
 }
 
-unsafe fn load_plugin(path: &Path) -> bool {
-    let wide = path_to_wide(path);
+unsafe fn load_plugin(manifest: &PluginManifest) -> bool {
+    register_plugin_logs(manifest);
+
+    let wide = path_to_wide(&manifest.entry_path);
     let module = win::load_library(&wide);
     if module.is_null() {
-        log::write_line(format!("plugin host: load failed path={}", path.display()));
+        log::write_line(format!(
+            "plugin host: load failed id={} path={}",
+            manifest.id,
+            manifest.entry_path.display()
+        ));
         return false;
     }
 
     let proc = win::get_proc_address(module, OPPW4_PLUGIN_INIT_SYMBOL.as_ptr().cast());
     if proc.is_null() {
         log::write_line(format!(
-            "plugin host: init symbol missing path={}",
-            path.display()
+            "plugin host: init symbol missing id={} path={}",
+            manifest.id,
+            manifest.entry_path.display()
         ));
         return false;
     }
@@ -76,21 +83,38 @@ unsafe fn load_plugin(path: &Path) -> bool {
     let result = init(&api);
     if result != 0 {
         log::write_line(format!(
-            "plugin host: init failed path={} result={result}",
-            path.display()
+            "plugin host: init failed id={} path={} result={result}",
+            manifest.id,
+            manifest.entry_path.display()
         ));
         return false;
     }
 
     if let Some(plugins) = LOADED_PLUGINS.get() {
-        let mut plugins = plugins.lock().expect("plugin list lock");
-        plugins.push(LoadedPlugin {
-            _path: path.to_path_buf(),
-            _module: module as usize,
-        });
+        plugins
+            .lock()
+            .expect("plugin list lock")
+            .push(LoadedPlugin {
+                _id: manifest.id.clone(),
+                _path: manifest.entry_path.clone(),
+                _module: module as usize,
+            });
     }
-    log::write_line(format!("plugin host: initialized path={}", path.display()));
+    log::write_line(format!(
+        "plugin host: initialized id={} path={}",
+        manifest.id,
+        manifest.entry_path.display()
+    ));
     true
+}
+
+fn register_plugin_logs(manifest: &PluginManifest) {
+    if let Some(router) = PLUGIN_LOGS.get() {
+        router
+            .lock()
+            .expect("plugin log router lock")
+            .register(manifest.id.clone(), manifest.log_root.clone());
+    }
 }
 
 unsafe extern "system" fn host_log(_host_context: *mut c_void, entry: *const Oppw4LogEntry) {
@@ -111,12 +135,6 @@ unsafe extern "system" fn host_log(_host_context: *mut c_void, entry: *const Opp
     }
 }
 
-fn is_plugin_dll(path: &Path) -> bool {
-    path.extension()
-        .and_then(|extension| extension.to_str())
-        .is_some_and(|extension| extension.eq_ignore_ascii_case("dll"))
-}
-
 fn path_to_wide(path: &Path) -> Vec<u16> {
     let mut wide = path.to_string_lossy().encode_utf16().collect::<Vec<_>>();
     wide.push(0);
@@ -124,22 +142,87 @@ fn path_to_wide(path: &Path) -> Vec<u16> {
 }
 
 struct LoadedPlugin {
+    _id: String,
     _path: PathBuf,
     _module: usize,
 }
 
+#[derive(Debug, PartialEq)]
+struct PluginManifest {
+    id: String,
+    entry_path: PathBuf,
+    log_root: PathBuf,
+}
+
+impl PluginManifest {
+    fn read_from_dir(plugin_dir: &Path) -> Option<Self> {
+        let manifest_path = plugin_dir.join("mod.toml");
+        let text = match fs::read_to_string(&manifest_path) {
+            Ok(text) => text,
+            Err(error) => {
+                log::write_line(format!(
+                    "plugin host: manifest missing path={} error={error}",
+                    manifest_path.display()
+                ));
+                return None;
+            }
+        };
+
+        match Self::parse(plugin_dir, &text) {
+            Ok(manifest) => Some(manifest),
+            Err(error) => {
+                log::write_line(format!(
+                    "plugin host: manifest invalid path={} error={error}",
+                    manifest_path.display()
+                ));
+                None
+            }
+        }
+    }
+
+    fn parse(plugin_dir: &Path, text: &str) -> Result<Self, String> {
+        let value = text
+            .parse::<toml::Value>()
+            .map_err(|error| error.to_string())?;
+        let plugin = value
+            .get("plugin")
+            .and_then(toml::Value::as_table)
+            .ok_or_else(|| "missing [plugin] table".to_string())?;
+        let id = plugin
+            .get("id")
+            .and_then(toml::Value::as_str)
+            .map(sanitize_plugin_id)
+            .filter(|id| id != "unknown_plugin")
+            .ok_or_else(|| "missing plugin.id".to_string())?;
+        let entry = plugin
+            .get("entry")
+            .and_then(toml::Value::as_str)
+            .ok_or_else(|| "missing plugin.entry".to_string())?;
+        Ok(Self {
+            id,
+            entry_path: child_path(plugin_dir, entry)?,
+            log_root: plugin_dir.join("logs"),
+        })
+    }
+}
+
 struct PluginLogRouter {
-    root: PathBuf,
+    roots: HashMap<String, PathBuf>,
     files: HashMap<String, File>,
 }
 
 impl PluginLogRouter {
-    fn new(root: PathBuf) -> Self {
-        let _ = fs::create_dir_all(&root);
+    fn new() -> Self {
         Self {
-            root,
+            roots: HashMap::new(),
             files: HashMap::new(),
         }
+    }
+
+    fn register(&mut self, plugin_id: String, log_root: PathBuf) {
+        let plugin_id = sanitize_plugin_id(&plugin_id);
+        let _ = fs::create_dir_all(&log_root);
+        self.roots.insert(plugin_id, log_root);
     }
 
     fn write(&mut self, plugin_id: &CStr, message: &CStr) -> std::io::Result<()> {
@@ -152,7 +235,13 @@ impl PluginLogRouter {
 
     fn file_for(&mut self, plugin_id: &str) -> std::io::Result<&mut File> {
         if !self.files.contains_key(plugin_id) {
-            let path = self.root.join(format!("{plugin_id}.log"));
+            let root = self
+                .roots
+                .get(plugin_id)
+                .cloned()
+                .unwrap_or_else(|| PathBuf::from("plugins").join(plugin_id).join("logs"));
+            fs::create_dir_all(&root)?;
+            let path = root.join(format!("{plugin_id}.log"));
             let file = OpenOptions::new().create(true).append(true).open(path)?;
             self.files.insert(plugin_id.to_string(), file);
         }
@@ -183,6 +272,14 @@ fn sanitize_plugin_id(raw: &str) -> String {
     }
 }
 
+fn child_path(root: &Path, child: &str) -> Result<PathBuf, String> {
+    let path = Path::new(child);
+    if path.is_absolute() || child.contains("..") {
+        return Err(format!("path must stay inside plugin dir: {child}"));
+    }
+    Ok(root.join(path))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -190,9 +287,47 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
-    fn plugin_logs_are_routed_to_per_plugin_files() {
+    fn manifest_points_entry_and_logs_inside_plugin_folder() {
+        let root = PathBuf::from(r"D:\Game\OPPW4\plugins\skin_patcher");
+        let manifest = PluginManifest::parse(
+            &root,
+            r#"
+                [plugin]
+                id = "skin_patcher"
+                entry = "skin_patcher.dll"
+            "#,
+        )
+        .expect("manifest");
+
+        assert_eq!(manifest.id, "skin_patcher");
+        assert_eq!(manifest.entry_path, root.join("skin_patcher.dll"));
+        assert_eq!(manifest.log_root, root.join("logs"));
+    }
+
+    #[test]
+    fn manifest_rejects_entry_escape() {
+        let error = PluginManifest::parse(
+            Path::new(r"D:\Game\OPPW4\plugins\bad"),
+            r#"
+                [plugin]
+                id = "bad"
+                entry = "../bad.dll"
+            "#,
+        )
+        .expect_err("entry should be rejected");
+
+        assert!(error.contains("inside plugin dir"));
+    }
+
+    #[test]
+    fn plugin_logs_are_routed_to_registered_plugin_folder() {
         let root = temp_root("plugin-log-routing");
-        let mut router = PluginLogRouter::new(root.clone());
+        let mut router = PluginLogRouter::new();
+        router.register(
+            "skin_patcher".to_string(),
+            root.join("skin_patcher").join("logs"),
+        );
+        router.register("fx_tools".to_string(), root.join("fx_tools").join("logs"));
         let skin = cstring_lossy("skin_patcher");
         let fx = cstring_lossy("fx_tools");
 
@@ -204,11 +339,17 @@ mod tests {
             .expect("fx log");
 
         assert_eq!(
-            fs::read_to_string(root.join("skin_patcher.log")).expect("skin log file"),
+            fs::read_to_string(
+                root.join("skin_patcher")
+                    .join("logs")
+                    .join("skin_patcher.log")
+            )
+            .expect("skin log file"),
             "skin online\n"
         );
         assert_eq!(
-            fs::read_to_string(root.join("fx_tools.log")).expect("fx log file"),
+            fs::read_to_string(root.join("fx_tools").join("logs").join("fx_tools.log"))
+                .expect("fx log file"),
             "fx online\n"
         );
         let _ = fs::remove_dir_all(root);
@@ -217,7 +358,11 @@ mod tests {
     #[test]
     fn plugin_log_file_names_are_sanitized() {
         let root = temp_root("plugin-log-sanitize");
-        let mut router = PluginLogRouter::new(root.clone());
+        let mut router = PluginLogRouter::new();
+        router.register(
+            "../skin patcher.dll".to_string(),
+            root.join("skin_patcher_dll").join("logs"),
+        );
         let plugin = cstring_lossy("../skin patcher.dll");
 
         router
@@ -225,7 +370,12 @@ mod tests {
             .expect("sanitized log");
 
         assert_eq!(
-            fs::read_to_string(root.join("skin_patcher_dll.log")).expect("sanitized log file"),
+            fs::read_to_string(
+                root.join("skin_patcher_dll")
+                    .join("logs")
+                    .join("skin_patcher_dll.log")
+            )
+            .expect("sanitized log file"),
             "clean path\n"
         );
         assert!(!root.join("..").join("skin patcher.dll.log").exists());

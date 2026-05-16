@@ -72,8 +72,8 @@ pub type Oppw4ProviderSeekFn = unsafe extern "system" fn(
 ) -> i32;
 pub type Oppw4ProviderPatchReadFn = unsafe extern "system" fn(
     provider_context: *mut c_void,
-    archive_name: *const c_char,
-    read_kind: Oppw4ReadKind,
+    path_utf8: *const c_char,
+    os_handle: usize,
     read_offset: u64,
     buffer: *mut u8,
     len: usize,
@@ -101,13 +101,6 @@ pub struct Oppw4PluginApi {
 pub struct Oppw4LogEntry {
     pub plugin_id: *const c_char,
     pub message: *const c_char,
-}
-
-#[repr(u32)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Oppw4ReadKind {
-    RdbIndex = 0,
-    RdbData = 1,
 }
 
 #[repr(C)]

@@ -1,7 +1,7 @@
 use std::{
+    collections::HashMap,
     ffi::{c_char, c_void, CStr},
     mem::size_of,
-    path::Path,
     sync::{
         atomic::{AtomicUsize, Ordering},
         Mutex, OnceLock,
@@ -9,27 +9,24 @@ use std::{
 };
 
 mod handles;
-mod rdb_tracker;
 mod types;
 
 use oppw4_plugin_api::{
     Oppw4FileProvider, Oppw4ProviderCloseFn, Oppw4ProviderFileTimeFn, Oppw4ProviderOpenPathFn,
     Oppw4ProviderPatchReadFn, Oppw4ProviderReadFn, Oppw4ProviderSeekFn, Oppw4ProviderSizeFn,
-    Oppw4ReadKind,
 };
 
 use crate::{log, win};
 use handles::{
     fake_to_handle, returned_virtual_handle, virtual_handle_for_os_handle, VirtualHandle,
 };
-use rdb_tracker::{RdbTracker, TrackedFileKind, TrackedRead};
 use types::*;
 
 static ORIGINALS: OnceLock<OriginalFunctions> = OnceLock::new();
 static FILE_PROVIDER: OnceLock<Mutex<Option<FileProvider>>> = OnceLock::new();
-static RDB_TRACKER: OnceLock<Mutex<RdbTracker>> = OnceLock::new();
+static OPEN_FILES: OnceLock<Mutex<OpenFileTracker>> = OnceLock::new();
 static CREATE_FILE_LOGS: AtomicUsize = AtomicUsize::new(0);
-static INDEX_PATCH_LOGS: AtomicUsize = AtomicUsize::new(0);
+static PATCH_READ_LOGS: AtomicUsize = AtomicUsize::new(0);
 static OPEN_VIRTUAL_LOGS: AtomicUsize = AtomicUsize::new(0);
 static VIRTUAL_IO_LOGS: AtomicUsize = AtomicUsize::new(0);
 
@@ -43,6 +40,28 @@ struct FileProvider {
     file_time: Option<Oppw4ProviderFileTimeFn>,
     seek: Oppw4ProviderSeekFn,
     patch_read: Option<Oppw4ProviderPatchReadFn>,
+}
+
+#[derive(Default)]
+struct OpenFileTracker {
+    paths: HashMap<usize, String>,
+}
+
+impl OpenFileTracker {
+    fn track_open(&mut self, handle: Handle, path: &str) {
+        if handle == INVALID_HANDLE_VALUE || handle.is_null() {
+            return;
+        }
+        self.paths.insert(handle as usize, path.to_string());
+    }
+
+    fn untrack(&mut self, handle: Handle) {
+        self.paths.remove(&(handle as usize));
+    }
+
+    fn path(&self, handle: Handle) -> Option<String> {
+        self.paths.get(&(handle as usize)).cloned()
+    }
 }
 
 pub unsafe fn register_file_provider(provider: *const Oppw4FileProvider) -> i32 {
@@ -258,10 +277,6 @@ unsafe extern "system" fn hooked_create_file_w(
     if let Some(path) = full_path.as_deref() {
         log_create_file_candidate(path, desired_access, creation_disposition);
     }
-    let file_name = full_path
-        .as_deref()
-        .and_then(|path| Path::new(path).file_name())
-        .map(|name| name.to_string_lossy().into_owned());
     let Some(original) = ORIGINALS
         .get()
         .and_then(|originals| originals.create_file_w)
@@ -285,8 +300,8 @@ unsafe extern "system" fn hooked_create_file_w(
         flags_and_attributes,
         template_file,
     );
-    if let Some(file_name) = file_name.as_deref() {
-        with_rdb_tracker(|tracker| tracker.track_open(handle, file_name));
+    if let Some(path) = full_path.as_deref() {
+        with_open_files(|files| files.track_open(handle, path));
     }
     handle
 }
@@ -311,7 +326,7 @@ unsafe extern "system" fn hooked_read_file(
     let Some(original) = ORIGINALS.get().and_then(|originals| originals.read_file) else {
         return 0;
     };
-    let tracked = tracked_read(handle, bytes_to_read, overlapped);
+    let tracked = tracked_read(handle, overlapped);
     let result = original(handle, buffer, bytes_to_read, bytes_read, overlapped);
     if result != 0 {
         patch_tracked_read(tracked, buffer, bytes_to_read, bytes_read);
@@ -327,7 +342,7 @@ unsafe extern "system" fn hooked_close_handle(handle: Handle) -> Bool {
     let Some(original) = ORIGINALS.get().and_then(|originals| originals.close_handle) else {
         return 0;
     };
-    with_rdb_tracker(|tracker| tracker.untrack(handle));
+    with_open_files(|files| files.untrack(handle));
     original(handle)
 }
 
@@ -649,38 +664,32 @@ fn with_provider<T>(action: impl FnOnce(&FileProvider) -> T) -> Option<T> {
     Some(action(provider))
 }
 
+fn with_open_files<T>(action: impl FnOnce(&mut OpenFileTracker) -> T) -> Option<T> {
+    let tracker = OPEN_FILES.get_or_init(|| Mutex::new(OpenFileTracker::default()));
+    let mut guard = tracker.lock().ok()?;
+    Some(action(&mut guard))
+}
+
 unsafe fn tracked_read(
     handle: Handle,
-    bytes_to_read: Dword,
     overlapped: Lpvoid,
-) -> Option<(TrackedRead, LargeInteger)> {
-    let Some((tracked, should_log)) =
-        with_rdb_tracker(|tracker| tracker.read_event(handle)).flatten()
-    else {
-        return None;
-    };
+) -> Option<(String, usize, LargeInteger)> {
+    let path = with_open_files(|files| files.path(handle)).flatten()?;
     let offset = if overlapped.is_null() {
         current_file_pointer(handle).unwrap_or(-1)
     } else {
         read_overlapped_offset(overlapped)
     };
-    if should_log {
-        log::write_line(format!(
-            "{} READ {}: offset=0x{offset:x} bytes=0x{bytes_to_read:x}",
-            tracked.kind.label(),
-            tracked.archive_name
-        ));
-    }
-    Some((tracked, offset))
+    Some((path, handle as usize, offset))
 }
 
 unsafe fn patch_tracked_read(
-    tracked: Option<(TrackedRead, LargeInteger)>,
+    tracked: Option<(String, usize, LargeInteger)>,
     buffer: Lpvoid,
     bytes_to_read: Dword,
     bytes_read: Lpdword,
 ) {
-    let Some((tracked, offset)) = tracked else {
+    let Some((path, os_handle, offset)) = tracked else {
         return;
     };
     if offset < 0 || buffer.is_null() {
@@ -695,34 +704,11 @@ unsafe fn patch_tracked_read(
         return;
     }
     let buffer = std::slice::from_raw_parts_mut(buffer.cast::<u8>(), actual_read);
-    match tracked.kind {
-        TrackedFileKind::Index => {
-            dispatch_patch_read(
-                &tracked.archive_name,
-                Oppw4ReadKind::RdbIndex,
-                offset as u64,
-                buffer,
-            );
-        }
-        TrackedFileKind::Data => {
-            dispatch_patch_read(
-                &tracked.archive_name,
-                Oppw4ReadKind::RdbData,
-                offset as u64,
-                buffer,
-            );
-        }
-    }
+    dispatch_patch_read(&path, os_handle, offset as u64, buffer);
 }
 
-fn dispatch_patch_read(
-    archive_name: &str,
-    read_kind: Oppw4ReadKind,
-    read_offset: u64,
-    buffer: &mut [u8],
-) {
-    let archive_label = archive_name.to_string();
-    let Ok(archive_name) = std::ffi::CString::new(archive_name.as_bytes()) else {
+fn dispatch_patch_read(path: &str, os_handle: usize, read_offset: u64, buffer: &mut [u8]) {
+    let Ok(path) = std::ffi::CString::new(path.as_bytes()) else {
         return;
     };
     let patched = with_provider(|provider| unsafe {
@@ -731,22 +717,22 @@ fn dispatch_patch_read(
         };
         patch_read(
             provider.provider_context as *mut c_void,
-            archive_name.as_ptr(),
-            read_kind,
+            path.as_ptr(),
+            os_handle,
             read_offset,
             buffer.as_mut_ptr(),
             buffer.len(),
         )
     })
     .unwrap_or_default();
-    if patched == 0 || INDEX_PATCH_LOGS.load(Ordering::Relaxed) >= 80 {
+    if patched == 0 || PATCH_READ_LOGS.load(Ordering::Relaxed) >= 80 {
         return;
     }
-    let index = INDEX_PATCH_LOGS.fetch_add(1, Ordering::Relaxed);
+    let index = PATCH_READ_LOGS.fetch_add(1, Ordering::Relaxed);
     if index < 80 {
         log::write_line(format!(
-            "Provider PATCH {:?} {archive_label}: read=0x{read_offset:x}+0x{:x} result={patched}",
-            read_kind,
+            "Provider PATCH path={} handle=0x{os_handle:x} read=0x{read_offset:x}+0x{:x} result={patched}",
+            path.to_string_lossy(),
             buffer.len()
         ));
     }
@@ -802,12 +788,6 @@ unsafe fn current_file_pointer(handle: Handle) -> Option<LargeInteger> {
     Some(position)
 }
 
-fn with_rdb_tracker<T>(action: impl FnOnce(&mut RdbTracker) -> T) -> Option<T> {
-    let tracker = RDB_TRACKER.get_or_init(|| Mutex::new(RdbTracker::default()));
-    let mut guard = tracker.lock().ok()?;
-    Some(action(&mut guard))
-}
-
 fn wide_path_to_string(path: Lpcwstr) -> Option<String> {
     if path.is_null() {
         return None;
@@ -835,6 +815,7 @@ fn log_virtual_io(args: std::fmt::Arguments<'_>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::Path;
 
     #[test]
     fn extracts_file_name_from_wide_path() {

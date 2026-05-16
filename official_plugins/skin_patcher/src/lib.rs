@@ -4,6 +4,7 @@ mod ffi;
 mod log;
 mod mods;
 mod patching;
+mod rdb_tracker;
 mod runtime;
 
 pub(crate) const LEGACY_NAME_HASH_CATALOG_ZIP: &[u8] =

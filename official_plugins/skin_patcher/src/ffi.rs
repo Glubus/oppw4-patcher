@@ -6,11 +6,12 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use oppw4_plugin_api::{Oppw4FileProvider, Oppw4PluginApi, Oppw4ReadKind};
+use oppw4_plugin_api::{Oppw4FileProvider, Oppw4PluginApi};
 
 use crate::{
     log,
     patching::{ReplacementSource, VirtualHandle, VirtualManager, VirtualReplacement},
+    rdb_tracker::{self, TrackedFileKind},
 };
 
 const FILETIME_TICKS_PER_SECOND: u64 = 10_000_000;
@@ -183,24 +184,42 @@ unsafe extern "system" fn provider_seek(
 
 unsafe extern "system" fn provider_patch_read(
     _context: *mut c_void,
-    archive_name: *const c_char,
-    read_kind: Oppw4ReadKind,
+    path_utf8: *const c_char,
+    _os_handle: usize,
     read_offset: u64,
     buffer: *mut u8,
     len: usize,
 ) -> i32 {
-    if archive_name.is_null() || buffer.is_null() {
+    if path_utf8.is_null() || buffer.is_null() {
         return -1;
     }
-    let archive_name = CStr::from_ptr(archive_name).to_string_lossy();
+    let path = CStr::from_ptr(path_utf8).to_string_lossy();
+    let Some(tracked) = rdb_tracker::tracked_read_from_path(&path) else {
+        return 0;
+    };
     let buffer = std::slice::from_raw_parts_mut(buffer, len);
-    match read_kind {
-        Oppw4ReadKind::RdbIndex => with_manager(|manager| {
-            manager.patch_archive_index_external_flags(&archive_name, read_offset, buffer)
-        })
-        .unwrap_or_default() as i32,
-        Oppw4ReadKind::RdbData => {
-            log_data_read_hits(&archive_name, read_offset, len);
+    match tracked.kind {
+        TrackedFileKind::Index => {
+            let patched = with_manager(|manager| {
+                manager.patch_archive_index_external_flags(
+                    &tracked.archive_name,
+                    read_offset,
+                    buffer,
+                )
+            })
+            .unwrap_or_default();
+            if patched > 0 {
+                log::write_line(format!(
+                    "{} PATCH {}: read=0x{read_offset:x}+0x{:x} fields={patched}",
+                    tracked.kind.label(),
+                    tracked.archive_name,
+                    len
+                ));
+            }
+            patched as i32
+        }
+        TrackedFileKind::Data => {
+            log_data_read_hits(&tracked.archive_name, read_offset, len);
             0
         }
     }

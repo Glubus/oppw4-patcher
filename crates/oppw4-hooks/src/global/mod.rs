@@ -22,6 +22,9 @@ use rdb_tracker::{RdbTracker, TrackedFileKind, TrackedRead};
 use types::*;
 
 static ORIGINALS: OnceLock<OriginalFunctions> = OnceLock::new();
+// TODO(plugin-api): this RDB replacement state is still legacy skin_patcher logic.
+// Move the replacement builder into official_plugins/skin_patcher, then keep only
+// a generic rule registry here for global CreateFileW/ReadFile dispatch.
 static RUNTIME: OnceLock<Mutex<Option<VirtualManager>>> = OnceLock::new();
 static RDB_TRACKER: OnceLock<Mutex<RdbTracker>> = OnceLock::new();
 static VIRTUAL_SOURCES: OnceLock<Mutex<HashMap<u64, ReplacementSource>>> = OnceLock::new();

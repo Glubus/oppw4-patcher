@@ -2,6 +2,7 @@ mod config;
 mod hooks;
 mod log;
 mod memory;
+mod mods;
 
 use oppw4_plugin_api::{Oppw4PluginApi, OPPW4_PLUGIN_API_VERSION};
 
@@ -14,7 +15,7 @@ pub unsafe extern "system" fn oppw4_plugin_init(api: *const Oppw4PluginApi) -> i
         return -2;
     }
     log::initialize(api);
-    let config = config::AuraConfig::load(api).unwrap_or_default();
+    let config = mods::load_config(api);
     log::write_line(format!(
         "weapon_aura init enabled={} mode={:?} trigger={:?} hotkey_vk=0x{:02x} target={:?} effect_id={} force_effect_id={} observe_effect_ids={} observe_character_probe={} speed={} loop_start={} loop_end={} install_delay_ms={} wait_for={:?} refresh_interval_ms={}",
         config.enabled,

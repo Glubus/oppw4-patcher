@@ -33,13 +33,13 @@ pub fn initialize(api: &Oppw4PluginApi) -> i32 {
     log_paths(&paths);
 
     let catalog = load_name_catalog(&paths);
-    let plugin_zip_paths = api
-        .plugin_mod_zips()
+    let legacy_mod_paths = api
+        .legacy_mod_paths()
         .into_iter()
         .map(PathBuf::from)
         .collect::<Vec<_>>();
-    log::write_line(format!("plugin mod zips: {}", plugin_zip_paths.len()));
-    let replacements = scan_known_archives(&paths, &catalog, plugin_zip_paths);
+    log::write_line(format!("legacy mod paths: {}", legacy_mod_paths.len()));
+    let replacements = scan_known_archives(&paths, &catalog, legacy_mod_paths);
     let plugin_id = cstring_lossy("skin_patcher");
     let replacement_count = replacements.len();
     let registered = ffi::register_replacements(api, &plugin_id, replacements);
@@ -140,10 +140,10 @@ fn load_embedded_name_catalog() -> Vec<oppw4_rdb::NameHashEntry> {
 fn scan_known_archives(
     paths: &RuntimePaths,
     catalog: &[oppw4_rdb::NameHashEntry],
-    plugin_zip_paths: Vec<PathBuf>,
+    legacy_mod_paths: Vec<PathBuf>,
 ) -> Vec<patching::VirtualReplacement> {
     let mut replacements = Vec::new();
-    let mods = ModRepository::with_zip_paths(paths.mods_root.clone(), plugin_zip_paths);
+    let mods = ModRepository::with_zip_paths(paths.mods_root.clone(), legacy_mod_paths);
     for archive in ARCHIVES {
         replacements.extend(scan_archive(paths, &mods, archive, catalog));
     }

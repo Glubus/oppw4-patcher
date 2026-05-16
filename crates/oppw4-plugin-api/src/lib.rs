@@ -3,7 +3,7 @@ use std::{
     ptr,
 };
 
-pub const OPPW4_PLUGIN_API_VERSION: u32 = 7;
+pub const OPPW4_PLUGIN_API_VERSION: u32 = 8;
 pub const OPPW4_PLUGIN_INIT_SYMBOL: &[u8] = b"oppw4_plugin_init\0";
 
 pub const OPPW4_GAME_PHASE_UNKNOWN: u32 = 0;
@@ -43,6 +43,13 @@ pub type HostPluginModZipVisitorFn =
 pub type HostForEachPluginModZipFn = unsafe extern "system" fn(
     host_context: *mut c_void,
     visitor: Option<HostPluginModZipVisitorFn>,
+    user_context: *mut c_void,
+) -> i32;
+pub type HostPluginModVisitorFn =
+    unsafe extern "system" fn(user_context: *mut c_void, entry: *const Oppw4PluginModEntry) -> i32;
+pub type HostForEachPluginModFn = unsafe extern "system" fn(
+    host_context: *mut c_void,
+    visitor: Option<HostPluginModVisitorFn>,
     user_context: *mut c_void,
 ) -> i32;
 pub type HostRegisterFileProviderFn =
@@ -105,6 +112,7 @@ pub struct Oppw4PluginApi {
     pub write_memory: Option<HostWriteMemoryFn>,
     pub scan_memory: Option<HostScanMemoryFn>,
     pub for_each_plugin_mod_zip: Option<HostForEachPluginModZipFn>,
+    pub for_each_plugin_mod: Option<HostForEachPluginModFn>,
     pub register_file_provider: Option<HostRegisterFileProviderFn>,
     pub game_status: Option<HostGameStatusFn>,
 }
@@ -114,6 +122,27 @@ pub struct Oppw4PluginApi {
 pub struct Oppw4LogEntry {
     pub plugin_id: *const c_char,
     pub message: *const c_char,
+}
+
+pub const OPPW4_PLUGIN_MOD_FLAG_ZIP: u32 = 1 << 0;
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct Oppw4PluginModEntry {
+    pub id: *const c_char,
+    pub name: *const c_char,
+    pub source_path_utf8: *const c_char,
+    pub entry_lua_utf8: *const c_char,
+    pub flags: u32,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PluginModInfo {
+    pub id: String,
+    pub name: String,
+    pub source_path: String,
+    pub entry_lua: String,
+    pub flags: u32,
 }
 
 #[repr(C)]
@@ -190,6 +219,10 @@ impl Oppw4PluginApi {
     }
 
     pub fn plugin_mod_zips(&self) -> Vec<String> {
+        self.legacy_mod_paths()
+    }
+
+    pub fn legacy_mod_paths(&self) -> Vec<String> {
         let Some(for_each) = self.for_each_plugin_mod_zip else {
             return Vec::new();
         };
@@ -202,6 +235,21 @@ impl Oppw4PluginApi {
             );
         }
         paths
+    }
+
+    pub fn plugin_mods(&self) -> Vec<PluginModInfo> {
+        let Some(for_each) = self.for_each_plugin_mod else {
+            return Vec::new();
+        };
+        let mut entries = Vec::new();
+        unsafe {
+            let _ = for_each(
+                self.host_context,
+                Some(collect_plugin_mod),
+                (&mut entries as *mut Vec<PluginModInfo>).cast(),
+            );
+        }
+        entries
     }
 
     pub fn register_file_provider(&self, provider: &Oppw4FileProvider) -> i32 {
@@ -261,9 +309,42 @@ pub const fn null_api() -> Oppw4PluginApi {
         write_memory: None,
         scan_memory: None,
         for_each_plugin_mod_zip: None,
+        for_each_plugin_mod: None,
         register_file_provider: None,
         game_status: None,
     }
+}
+
+unsafe extern "system" fn collect_plugin_mod(
+    user_context: *mut c_void,
+    entry: *const Oppw4PluginModEntry,
+) -> i32 {
+    let Some(entries) = user_context.cast::<Vec<PluginModInfo>>().as_mut() else {
+        return -1;
+    };
+    let Some(entry) = entry.as_ref() else {
+        return -2;
+    };
+    let Some(id) = optional_cstr(entry.id) else {
+        return -3;
+    };
+    let Some(name) = optional_cstr(entry.name) else {
+        return -4;
+    };
+    let Some(source_path) = optional_cstr(entry.source_path_utf8) else {
+        return -5;
+    };
+    let Some(entry_lua) = optional_cstr(entry.entry_lua_utf8) else {
+        return -6;
+    };
+    entries.push(PluginModInfo {
+        id: id.to_string_lossy().into_owned(),
+        name: name.to_string_lossy().into_owned(),
+        source_path: source_path.to_string_lossy().into_owned(),
+        entry_lua: entry_lua.to_string_lossy().into_owned(),
+        flags: entry.flags,
+    });
+    0
 }
 
 #[cfg(test)]
@@ -308,19 +389,8 @@ mod tests {
             .expect("capture lock")
             .clear();
         let api = Oppw4PluginApi {
-            version: OPPW4_PLUGIN_API_VERSION,
-            host_context: ptr::null_mut(),
-            game_root_utf8: ptr::null(),
-            plugin_root_utf8: ptr::null(),
-            plugin_mods_root_utf8: ptr::null(),
             log: Some(capture_log),
-            module_base: None,
-            read_memory: None,
-            write_memory: None,
-            scan_memory: None,
-            for_each_plugin_mod_zip: None,
-            register_file_provider: None,
-            game_status: None,
+            ..null_api()
         };
         let plugin = cstring_lossy("skin_patcher");
         let message = cstring_lossy("hello");
@@ -336,19 +406,8 @@ mod tests {
     #[test]
     fn api_collects_plugin_mod_zip_paths_from_host() {
         let api = Oppw4PluginApi {
-            version: OPPW4_PLUGIN_API_VERSION,
-            host_context: ptr::null_mut(),
-            game_root_utf8: ptr::null(),
-            plugin_root_utf8: ptr::null(),
-            plugin_mods_root_utf8: ptr::null(),
-            log: None,
-            module_base: None,
-            read_memory: None,
-            write_memory: None,
-            scan_memory: None,
             for_each_plugin_mod_zip: Some(visit_mod_zips),
-            register_file_provider: None,
-            game_status: None,
+            ..null_api()
         };
 
         assert_eq!(

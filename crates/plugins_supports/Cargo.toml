@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 oppw4-hooks.workspace = true
+oppw4-lua-support.workspace = true
 oppw4-plugin-api.workspace = true
 tracing.workspace = true
 toml.workspace = true

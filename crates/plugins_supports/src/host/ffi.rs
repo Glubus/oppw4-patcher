@@ -4,19 +4,24 @@ use std::{
 };
 
 use oppw4_plugin_api::{
-    optional_cstr, HostPluginModZipVisitorFn, Oppw4FileProvider, Oppw4LogEntry, Oppw4PluginApi,
-    Oppw4GameStatus, OPPW4_PLUGIN_API_VERSION,
+    optional_cstr, HostPluginModVisitorFn, HostPluginModZipVisitorFn, Oppw4FileProvider,
+    Oppw4GameStatus, Oppw4LogEntry, Oppw4PluginApi, Oppw4PluginModEntry,
+    OPPW4_PLUGIN_API_VERSION, OPPW4_PLUGIN_MOD_FLAG_ZIP,
 };
 
 use super::{logs, mods};
 
 pub(crate) struct ApiContext {
+    plugin_id: String,
     plugin_mods_root: PathBuf,
 }
 
 impl ApiContext {
-    pub(crate) fn new(plugin_mods_root: PathBuf) -> Self {
-        Self { plugin_mods_root }
+    pub(crate) fn new(plugin_id: String, plugin_mods_root: PathBuf) -> Self {
+        Self {
+            plugin_id,
+            plugin_mods_root,
+        }
     }
 }
 
@@ -40,6 +45,7 @@ pub(crate) fn build_api(
         write_memory: Some(host_write_memory),
         scan_memory: Some(host_scan_memory),
         for_each_plugin_mod_zip: Some(host_for_each_plugin_mod_zip),
+        for_each_plugin_mod: Some(host_for_each_plugin_mod),
         register_file_provider: Some(host_register_file_provider),
         game_status: Some(host_game_status),
     }
@@ -128,9 +134,48 @@ unsafe extern "system" fn host_for_each_plugin_mod_zip(
     let Some(visitor) = visitor else {
         return -2;
     };
-    for path in mods::list_zip_paths(&context.plugin_mods_root) {
+    for path in mods::list_legacy_paths(&context.plugin_mods_root) {
         let path = cstring_lossy(&path.to_string_lossy());
         let result = visitor(user_context, path.as_ptr());
+        if result != 0 {
+            return result;
+        }
+    }
+    0
+}
+
+unsafe extern "system" fn host_for_each_plugin_mod(
+    host_context: *mut c_void,
+    visitor: Option<HostPluginModVisitorFn>,
+    user_context: *mut c_void,
+) -> i32 {
+    let Some(context) = host_context.cast::<ApiContext>().as_ref() else {
+        return -1;
+    };
+    let Some(visitor) = visitor else {
+        return -2;
+    };
+
+    for mod_entry in oppw4_lua_support::discover_mods(&context.plugin_mods_root) {
+        if !mod_entry.uses_plugin(&context.plugin_id) {
+            continue;
+        }
+        let id = cstring_lossy(&mod_entry.manifest.id);
+        let name = cstring_lossy(&mod_entry.manifest.name);
+        let source_path = cstring_lossy(&mod_entry.source_path().to_string_lossy());
+        let entry_lua = cstring_lossy(&mod_entry.manifest.entry_lua);
+        let entry = Oppw4PluginModEntry {
+            id: id.as_ptr(),
+            name: name.as_ptr(),
+            source_path_utf8: source_path.as_ptr(),
+            entry_lua_utf8: entry_lua.as_ptr(),
+            flags: if mod_entry.is_zip() {
+                OPPW4_PLUGIN_MOD_FLAG_ZIP
+            } else {
+                0
+            },
+        };
+        let result = visitor(user_context, &entry);
         if result != 0 {
             return result;
         }

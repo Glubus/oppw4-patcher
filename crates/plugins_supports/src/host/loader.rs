@@ -38,16 +38,16 @@ fn load_plugins(game_root: &Path, plugin_root: &Path) {
         let Some(manifest) = PluginManifest::read_from_dir(&plugin_dir) else {
             continue;
         };
-        if unsafe { load_plugin(game_root, &manifest) } {
+        if unsafe { load_plugin(game_root, &mods_root(game_root), &manifest) } {
             loaded += 1;
         }
     }
     log::write_line(format!("plugin host: loaded={loaded}"));
 }
 
-unsafe fn load_plugin(game_root: &Path, manifest: &PluginManifest) -> bool {
+unsafe fn load_plugin(game_root: &Path, mods_root: &Path, manifest: &PluginManifest) -> bool {
     logs::register(manifest.id.clone(), manifest.log_root.clone());
-    let _ = fs::create_dir_all(&manifest.mods_root);
+    let _ = fs::create_dir_all(mods_root);
 
     let wide = path_to_wide(&manifest.entry_path);
     let module = win::load_library(&wide);
@@ -71,7 +71,7 @@ unsafe fn load_plugin(game_root: &Path, manifest: &PluginManifest) -> bool {
     }
 
     let init: PluginInitFn = std::mem::transmute(proc);
-    let api_state = PluginApiState::new(game_root, manifest);
+    let api_state = PluginApiState::new(game_root, mods_root, manifest);
     let api = ffi::build_api(
         game_root,
         &api_state.game_root_utf8,
@@ -129,12 +129,16 @@ struct PluginApiState {
 }
 
 impl PluginApiState {
-    fn new(game_root: &Path, manifest: &PluginManifest) -> Self {
+    fn new(game_root: &Path, mods_root: &Path, manifest: &PluginManifest) -> Self {
         Self {
             game_root_utf8: ffi::cstring_lossy(&game_root.to_string_lossy()),
             plugin_root_utf8: ffi::cstring_lossy(&manifest.root.to_string_lossy()),
-            plugin_mods_root_utf8: ffi::cstring_lossy(&manifest.mods_root.to_string_lossy()),
-            context: ffi::ApiContext::new(manifest.mods_root.clone()),
+            plugin_mods_root_utf8: ffi::cstring_lossy(&mods_root.to_string_lossy()),
+            context: ffi::ApiContext::new(manifest.id.clone(), mods_root.to_path_buf()),
         }
     }
+}
+
+fn mods_root(game_root: &Path) -> PathBuf {
+    game_root.join("mods")
 }

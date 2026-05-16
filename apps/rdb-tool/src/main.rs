@@ -46,6 +46,11 @@ enum Command {
         linkdata_path: String,
         needle: String,
     },
+    LinkDataExtractEntry {
+        linkdata_path: String,
+        entry_index: usize,
+        out_path: String,
+    },
     LinkDataInsertLawSlot(linkdata_insert::InsertCommand),
     LawSlot5AssetPackage,
     LawSlot5Preflight {
@@ -88,6 +93,10 @@ fn parse_args(mut args: impl Iterator<Item = String>) -> Result<CliArgs, String>
 
     if rdb_path == "--linkdata-search" {
         return parse_linkdata_search_command(args).map(|command| CliArgs { command });
+    }
+
+    if rdb_path == "--linkdata-extract-entry" {
+        return parse_linkdata_extract_entry_command(args).map(|command| CliArgs { command });
     }
 
     if rdb_path == "--linkdata-insert-law-slot" {
@@ -238,6 +247,38 @@ fn linkdata_search_usage() -> String {
     "usage: oppw4-rdb-tools --linkdata-search <linkdata-bin> <needle>".to_string()
 }
 
+fn parse_linkdata_extract_entry_command(
+    mut args: impl Iterator<Item = String>,
+) -> Result<Command, String> {
+    let Some(linkdata_path) = args.next() else {
+        return Err(linkdata_extract_entry_usage());
+    };
+    let Some(raw_entry_index) = args.next() else {
+        return Err(linkdata_extract_entry_usage());
+    };
+    let Some(out_path) = args.next() else {
+        return Err(linkdata_extract_entry_usage());
+    };
+    if args.next().is_some() {
+        return Err(linkdata_extract_entry_usage());
+    }
+
+    let entry_index = raw_entry_index
+        .parse::<usize>()
+        .map_err(|_| format!("invalid entry index: {raw_entry_index}"))?;
+
+    Ok(Command::LinkDataExtractEntry {
+        linkdata_path,
+        entry_index,
+        out_path,
+    })
+}
+
+fn linkdata_extract_entry_usage() -> String {
+    "usage: oppw4-rdb-tools --linkdata-extract-entry <linkdata-bin> <entry-index> <out-file>"
+        .to_string()
+}
+
 fn scan_usage() -> String {
     "usage: oppw4-rdb-tools <path-to-rdb> --scan <folder> [--catalog <dll>]".to_string()
 }
@@ -314,6 +355,11 @@ fn run_command(command: Command) {
             linkdata_path,
             needle,
         } => search_linkdata(&linkdata_path, &needle),
+        Command::LinkDataExtractEntry {
+            linkdata_path,
+            entry_index,
+            out_path,
+        } => extract_linkdata_entry(&linkdata_path, entry_index, &out_path),
         Command::LinkDataInsertLawSlot(command) => {
             if let Err(error) = linkdata_insert::run(command) {
                 eprintln!("{error}");
@@ -537,6 +583,42 @@ fn search_linkdata(linkdata_path: &str, needle: &str) {
         }
     }
     println!("matches: {matches}");
+}
+
+fn extract_linkdata_entry(linkdata_path: &str, entry_index: usize, out_path: &str) {
+    let bytes = read_file_or_exit(linkdata_path, "LINKDATA");
+    let index = match parse_linkdata(&bytes) {
+        Ok(index) => index,
+        Err(error) => {
+            eprintln!("failed to parse LINKDATA {linkdata_path}: {error:?}");
+            process::exit(1);
+        }
+    };
+    let Some(entry) = index.entries.iter().find(|entry| entry.index == entry_index) else {
+        eprintln!(
+            "entry {entry_index} not found in LINKDATA {linkdata_path}; entries={}",
+            index.entries.len()
+        );
+        process::exit(1);
+    };
+    let inflated = match inflate_linkdata_entry(&bytes, entry) {
+        Ok(inflated) => inflated,
+        Err(error) => {
+            eprintln!("failed to inflate entry {entry_index}: {error:?}");
+            process::exit(1);
+        }
+    };
+    if let Err(error) = fs::write(out_path, &inflated) {
+        eprintln!("failed to write {out_path}: {error}");
+        process::exit(1);
+    }
+    println!(
+        "{{\"event\":\"linkdata_extract_entry\",\"linkdata_path\":\"{}\",\"entry_index\":{},\"out_path\":\"{}\",\"bytes\":{}}}",
+        json_str(linkdata_path),
+        entry_index,
+        json_str(out_path),
+        inflated.len()
+    );
 }
 
 fn find_bytes_from(haystack: &[u8], needle: &[u8], start: usize) -> Option<usize> {

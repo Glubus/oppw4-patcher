@@ -9,6 +9,7 @@ crate-type = ["cdylib"]
 name = "dinput8"
 
 [dependencies]
+oppw4-plugin-api.workspace = true
 oppw4-rdb.workspace = true
 tracing.workspace = true
 tracing-appender.workspace = true

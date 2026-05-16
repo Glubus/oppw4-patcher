@@ -2,6 +2,7 @@ mod hooks;
 mod loader;
 mod log;
 mod mods;
+mod plugin_host;
 mod win;
 
 use std::ffi::c_void;

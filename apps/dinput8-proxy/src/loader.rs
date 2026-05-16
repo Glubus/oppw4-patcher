@@ -6,7 +6,7 @@ use std::{
     sync::Once,
 };
 
-use crate::{hooks, log, mods::ModRepository, win};
+use crate::{hooks, log, mods::ModRepository, plugin_host, win};
 
 const EMBEDDED_NAME_CATALOG_ZIP: &[u8] = include_bytes!("../../../resources/name_hash_catalog.zip");
 
@@ -29,6 +29,7 @@ fn initialize_loader_thread(base_dir: PathBuf) {
     hooks::install_main_module_hooks();
     let paths = LoaderPaths::from_base_dir(base_dir);
     log_loader_paths(&paths);
+    plugin_host::initialize(&paths.plugin_root, &paths.plugin_log_root);
     let catalog = load_name_catalog(&paths);
     let replacements = scan_known_archives(&paths, &catalog);
     hooks::publish_replacements(replacements);
@@ -38,6 +39,8 @@ struct LoaderPaths {
     game_root: PathBuf,
     mods_root: PathBuf,
     config_root: PathBuf,
+    plugin_root: PathBuf,
+    plugin_log_root: PathBuf,
     rdb_root: PathBuf,
 }
 
@@ -47,6 +50,8 @@ impl LoaderPaths {
         Self {
             game_root: base_dir.clone(),
             config_root: mods_root.join("_oppw4"),
+            plugin_root: mods_root.join("_oppw4").join("plugins"),
+            plugin_log_root: mods_root.join("_oppw4").join("plugin_logs"),
             mods_root,
             rdb_root: base_dir
                 .join("File")
@@ -61,6 +66,11 @@ fn log_loader_paths(paths: &LoaderPaths) {
     log::write_line(format!("game root: {}", paths.game_root.display()));
     log::write_line(format!("mods root: {}", paths.mods_root.display()));
     log::write_line(format!("config root: {}", paths.config_root.display()));
+    log::write_line(format!("plugin root: {}", paths.plugin_root.display()));
+    log::write_line(format!(
+        "plugin log root: {}",
+        paths.plugin_log_root.display()
+    ));
     log::write_line(format!("rdb root: {}", paths.rdb_root.display()));
 }
 
@@ -292,6 +302,14 @@ mod tests {
         assert_eq!(
             paths.config_root,
             PathBuf::from(r"D:\Game\OPPW4\mods\_oppw4")
+        );
+        assert_eq!(
+            paths.plugin_root,
+            PathBuf::from(r"D:\Game\OPPW4\mods\_oppw4\plugins")
+        );
+        assert_eq!(
+            paths.plugin_log_root,
+            PathBuf::from(r"D:\Game\OPPW4\mods\_oppw4\plugin_logs")
         );
     }
 }

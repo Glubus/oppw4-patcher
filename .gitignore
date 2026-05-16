@@ -12,3 +12,6 @@
 
 # Local reverse-engineering scratch space.
 /scratch/
+
+# Local game binaries used only for reverse-engineering/reference.
+/OPPW4.exe

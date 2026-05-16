@@ -150,6 +150,7 @@ struct LoadedPlugin {
 #[derive(Debug, PartialEq)]
 struct PluginManifest {
     id: String,
+    version: String,
     entry_path: PathBuf,
     log_root: PathBuf,
 }
@@ -198,9 +199,15 @@ impl PluginManifest {
             .get("entry")
             .and_then(toml::Value::as_str)
             .ok_or_else(|| "missing plugin.entry".to_string())?;
+        let version = plugin
+            .get("version")
+            .and_then(toml::Value::as_str)
+            .ok_or_else(|| "missing plugin.version".to_string())?
+            .to_string();
         Ok(Self {
             id,
-            entry_path: child_path(plugin_dir, entry)?,
+            version,
+            entry_path: entry_file_path(plugin_dir, entry)?,
             log_root: plugin_dir.join("logs"),
         })
     }
@@ -272,10 +279,13 @@ fn sanitize_plugin_id(raw: &str) -> String {
     }
 }
 
-fn child_path(root: &Path, child: &str) -> Result<PathBuf, String> {
+fn entry_file_path(root: &Path, child: &str) -> Result<PathBuf, String> {
     let path = Path::new(child);
-    if path.is_absolute() || child.contains("..") {
-        return Err(format!("path must stay inside plugin dir: {child}"));
+    if path.is_absolute()
+        || path.components().count() != 1
+        || path.file_name().and_then(|value| value.to_str()) != Some(child)
+    {
+        return Err(format!("entry must be a file name only: {child}"));
     }
     Ok(root.join(path))
 }
@@ -294,29 +304,47 @@ mod tests {
             r#"
                 [plugin]
                 id = "skin_patcher"
+                version = "0.1.0"
                 entry = "skin_patcher.dll"
             "#,
         )
         .expect("manifest");
 
         assert_eq!(manifest.id, "skin_patcher");
+        assert_eq!(manifest.version, "0.1.0");
         assert_eq!(manifest.entry_path, root.join("skin_patcher.dll"));
         assert_eq!(manifest.log_root, root.join("logs"));
     }
 
     #[test]
-    fn manifest_rejects_entry_escape() {
+    fn manifest_rejects_entry_with_path_segments() {
         let error = PluginManifest::parse(
             Path::new(r"D:\Game\OPPW4\plugins\bad"),
             r#"
                 [plugin]
                 id = "bad"
-                entry = "../bad.dll"
+                version = "0.1.0"
+                entry = "bin/bad.dll"
             "#,
         )
         .expect_err("entry should be rejected");
 
-        assert!(error.contains("inside plugin dir"));
+        assert!(error.contains("file name only"));
+    }
+
+    #[test]
+    fn manifest_requires_version() {
+        let error = PluginManifest::parse(
+            Path::new(r"D:\Game\OPPW4\plugins\bad"),
+            r#"
+                [plugin]
+                id = "bad"
+                entry = "bad.dll"
+            "#,
+        )
+        .expect_err("version should be required");
+
+        assert!(error.contains("plugin.version"));
     }
 
     #[test]

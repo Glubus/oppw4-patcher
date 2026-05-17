@@ -211,6 +211,50 @@ const CHARACTERS: &[Character] = &[
         ["eustass_kid", "kidd"]
     ),
     character!(Some(42), 50, "hawkins", "Hawkins", "MPLC050_Hawkins_NW"),
+    character!(
+        Some(49),
+        56,
+        "mr2",
+        "Mr. 2",
+        "MNPC005_Mr2",
+        ["bon_clay", "bonclay"]
+    ),
+    character!(Some(50), 57, "mr3", "Mr. 3", "MNPC006_Mr3", ["galdino"]),
+    character!(Some(51), 58, "kaku", "Kaku", "MNPC007_Kaku"),
+    character!(Some(52), 59, "jabra", "Jabra", "MNPC008_Jabra"),
+    character!(Some(53), 60, "blueno", "Blueno", "MNPC009_Blueno"),
+    character!(Some(55), 62, "pacifista", "Pacifista", "MNPC011_Pacifista"),
+    character!(Some(56), 70, "mr1", "Mr. 1", "MNPC019_Mr1", ["daz_bones"]),
+    character!(Some(57), 71, "bellamy", "Bellamy", "MNPC020_Bellamy_NW"),
+    character!(Some(58), 76, "burgess", "Burgess", "MNPC025_Burgess"),
+    character!(Some(59), 77, "coby", "Coby", "MNPC026_Coby", ["koby"]),
+    character!(
+        Some(60),
+        79,
+        "sengoku_chg",
+        "Sengoku Change",
+        "MNPC028_Sengoku_Chg"
+    ),
+    character!(
+        Some(61),
+        80,
+        "kinemon_npc",
+        "Kinemon NPC",
+        "MNPC029_Kinemon"
+    ),
+    character!(Some(62), 83, "pica_giant", "Pica Giant", "MNPC032_PicaG"),
+    character!(Some(63), 86, "pica", "Pica", "MNPC035_PicaC"),
+    character!(Some(66), 89, "diamante", "Diamante", "MNPC038_Diamante"),
+    character!(Some(67), 91, "jack_chg", "Jack Change", "MNPC040_Jack_Chg"),
+    character!(Some(68), 92, "perospero", "Perospero", "MNPC041_Perospero"),
+    character!(
+        Some(69),
+        93,
+        "drake_chg_npc",
+        "Drake Change NPC",
+        "MNPC042_Drake_Chg"
+    ),
+    character!(Some(70), 65, "jozu", "Jozu", "MNPC014_Jozu"),
     character!(Some(153), 280, "smoothie", "Smoothie", "MDLC041_Smoothie"),
     character!(Some(155), 281, "cracker", "Cracker", "MDLC042_Cracker"),
     character!(
@@ -355,6 +399,111 @@ const CHARACTERS: &[Character] = &[
         "MDLC075_Bonney_EGH",
         ["bonney"]
     ),
+    character!(
+        Some(185),
+        316,
+        "bonney_g",
+        "Bonney Gear",
+        "MDLC077_Bonney_G",
+        ["bonney_gear"]
+    ),
+    character!(
+        Some(186),
+        318,
+        "bonney_frf",
+        "Bonney Future",
+        "MDLC079_Bonney_FRF",
+        ["bonney_future"]
+    ),
+    character!(
+        Some(187),
+        319,
+        "ssnake",
+        "S-Snake",
+        "MDLC080_SSnake",
+        ["s_snake", "s-snake"]
+    ),
+    character!(
+        Some(188),
+        320,
+        "kuma_egh",
+        "Kuma Egghead",
+        "MDLC081_Kuma_EGH",
+        ["egghead_kuma"]
+    ),
+    character!(
+        Some(189),
+        321,
+        "luffy_n_bny",
+        "Monkey D. Luffy Bonney",
+        "MDLC082_Luffy_N_BNY",
+        ["luffy_bonney"]
+    ),
+    character!(
+        Some(190),
+        322,
+        "eneru_d",
+        "Eneru Divine",
+        "MDLC083_Eneru_D",
+        ["eneru", "enel"]
+    ),
+    character!(
+        Some(191),
+        323,
+        "eneru_a_d",
+        "Eneru Amaru",
+        "MDLC084_Eneru_A_D",
+        ["enel_amaru"]
+    ),
+    character!(
+        Some(192),
+        324,
+        "eneru_th_b",
+        "Eneru Thunder Black",
+        "MDLC085_Eneru_TH_B",
+        ["enel_thunder_black"]
+    ),
+    character!(
+        Some(193),
+        325,
+        "eneru_th_w",
+        "Eneru Thunder White",
+        "MDLC086_Eneru_TH_W",
+        ["enel_thunder_white"]
+    ),
+    character!(
+        Some(194),
+        326,
+        "eneru_th_d",
+        "Eneru Thunder Divine",
+        "MDLC087_Eneru_TH_D",
+        ["enel_thunder_divine"]
+    ),
+    character!(Some(195), 327, "z_d", "Z", "MDLC088_Z_D", ["z", "zephyr"]),
+    character!(Some(196), 328, "king", "King", "MDLC089_King"),
+    character!(
+        Some(197),
+        329,
+        "king_bs",
+        "King Beast",
+        "MDLC090_King_BS",
+        ["king_beast"]
+    ),
+    character!(
+        Some(198),
+        330,
+        "king_dr",
+        "King Dragon",
+        "MDLC091_King_DR",
+        ["king_dragon"]
+    ),
+    character!(
+        Some(199),
+        331,
+        "gatling_n",
+        "Gatling N",
+        "MDLC092_Gatling_N"
+    ),
 ];
 
 pub fn all() -> &'static [Character] {
@@ -434,6 +583,20 @@ mod tests {
         assert_eq!(
             find("bonney").map(|character| character.model_id),
             Some(314)
+        );
+        assert_eq!(find("z").map(|character| character.model_id), Some(327));
+        assert_eq!(find("king").map(|character| character.model_id), Some(328));
+        assert_eq!(find("eneru").map(|character| character.model_id), Some(322));
+    }
+
+    #[test]
+    fn includes_linkdata_npc_rows_with_model_ids() {
+        assert_eq!(find("kaku").map(|character| character.model_id), Some(58));
+        assert_eq!(find("jabra").map(|character| character.model_id), Some(59));
+        assert_eq!(find("blueno").map(|character| character.model_id), Some(60));
+        assert_eq!(
+            find("bon clay").map(|character| character.model_id),
+            Some(56)
         );
     }
 

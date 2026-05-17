@@ -1,7 +1,8 @@
-mod hooks;
+mod active_character;
+mod config;
 mod loader;
 mod log;
-mod mods;
+mod time;
 mod win;
 
 use std::ffi::c_void;

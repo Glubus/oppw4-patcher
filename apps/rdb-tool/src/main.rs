@@ -1,10 +1,9 @@
 use std::{env, fs, path::Path, process};
 
-use oppw4_rdb::{
-    attach_mod_file_sizes, build_virtualization_table, parse_block_tail, parse_name_hash_catalog,
-    parse_payload_tail, parse_prefixed_hex_hash, parse_rdb, scan_archive_names_with_catalog,
-    scan_virtualized_names_with_catalog, ArchiveScan, NameHashEntry, RdbAddressSuffix, RdbBlock,
-    RdbIndex, VirtualManager, VirtualReplacement,
+use rdb::{
+    parse_block_tail, parse_name_hash_catalog, parse_payload_tail, parse_prefixed_hex_hash,
+    parse_rdb, scan_archive_names_with_catalog, scan_virtualized_names_with_catalog, ArchiveScan,
+    NameHashEntry, RdbAddressSuffix, RdbBlock, RdbIndex,
 };
 
 struct CliArgs {
@@ -52,7 +51,7 @@ fn parse_args_or_exit() -> CliArgs {
 
 fn parse_args(mut args: impl Iterator<Item = String>) -> Result<CliArgs, String> {
     let Some(rdb_path) = args.next() else {
-        return Err("usage: oppw4-rdb-tools <path-to-rdb> [hash]".to_string());
+        return Err("usage: rdb-tools <path-to-rdb> [hash]".to_string());
     };
 
     if rdb_path == "--export-catalog" {
@@ -87,7 +86,7 @@ fn parse_export_catalog_command(mut args: impl Iterator<Item = String>) -> Resul
 }
 
 fn export_catalog_usage() -> String {
-    "usage: oppw4-rdb-tools --export-catalog <source-dll> <out-file>".to_string()
+    "usage: rdb-tools --export-catalog <source-dll> <out-file>".to_string()
 }
 
 fn parse_scan_command(
@@ -141,12 +140,11 @@ fn parse_scan_root_command(mut args: impl Iterator<Item = String>) -> Result<Com
 }
 
 fn scan_usage() -> String {
-    "usage: oppw4-rdb-tools <path-to-rdb> --scan <folder> [--catalog <dll>]".to_string()
+    "usage: rdb-tools <path-to-rdb> --scan <folder> [--catalog <dll>]".to_string()
 }
 
 fn scan_root_usage() -> String {
-    "usage: oppw4-rdb-tools --scan-root <patcher-root> --rdb-root <rdb-root> --catalog <dll>"
-        .to_string()
+    "usage: rdb-tools --scan-root <patcher-root> --rdb-root <rdb-root> --catalog <dll>".to_string()
 }
 
 fn load_rdb_or_exit(path: &str) -> RdbIndex {
@@ -331,7 +329,6 @@ fn scan_root(patcher_root: &str, rdb_root: &str, catalog: &[NameHashEntry]) {
     let mut total_matched = 0;
     let mut total_missing = 0;
     let mut total_unresolved = 0;
-    let mut replacements = Vec::new();
 
     println!("scan_root: {patcher_root}");
     println!("rdb_root: {rdb_root}");
@@ -357,13 +354,11 @@ fn scan_root(patcher_root: &str, rdb_root: &str, catalog: &[NameHashEntry]) {
         total_unresolved += counts.unresolved_names;
 
         print_archive_scan_summary(&scan);
-        replacements.extend(build_virtualization_table(&scan, &folder));
     }
 
     println!(
         "total files={total_files} matched={total_matched} missing={total_missing} unresolved={total_unresolved}"
     );
-    print_virtualization_summary(replacements);
 }
 
 fn load_archive_inputs(
@@ -414,83 +409,6 @@ fn print_archive_scan_summary(scan: &ArchiveScan<'_>) {
     }
 }
 
-fn print_virtualization_summary(replacements: Vec<VirtualReplacement>) {
-    let replacement_count = replacements.len();
-    let enriched = match attach_mod_file_sizes(replacements) {
-        Ok(replacements) => replacements,
-        Err(error) => {
-            println!("virtualization_table: failed to read replacement sizes: {error}");
-            return;
-        }
-    };
-    let total_mod_bytes: u64 = enriched
-        .iter()
-        .filter_map(|replacement| replacement.mod_size)
-        .sum();
-    let exact_bin_size_matches = enriched
-        .iter()
-        .filter(|replacement| {
-            replacement
-                .original_bin_size
-                .zip(replacement.mod_size)
-                .is_some_and(|(original, replacement)| original as u64 == replacement)
-        })
-        .count();
-    let known_original_bin_sizes = enriched
-        .iter()
-        .filter(|replacement| replacement.original_bin_size.is_some())
-        .count();
-
-    println!(
-        "virtualization_table: replacements={replacement_count} total_mod_bytes={total_mod_bytes}"
-    );
-    println!(
-        "virtualization_table: known_original_bin_sizes={known_original_bin_sizes} exact_size_matches={exact_bin_size_matches}"
-    );
-    for replacement in enriched
-        .iter()
-        .filter(|replacement| {
-            replacement
-                .original_bin_size
-                .zip(replacement.mod_size)
-                .is_some_and(|(original, replacement)| original as u64 != replacement)
-        })
-        .take(8)
-    {
-        println!(
-            "  size_mismatch archive={} file={} original=0x{:x} mod=0x{:x} bin_offset=0x{:x}",
-            replacement.archive_name,
-            replacement.file_name,
-            replacement.original_bin_size.unwrap(),
-            replacement.mod_size.unwrap(),
-            replacement.original_bin_offset.unwrap_or(0)
-        );
-    }
-    print_first_replacement_probe(enriched);
-}
-
-fn print_first_replacement_probe(replacements: Vec<VirtualReplacement>) {
-    let Some(first) = replacements.first().cloned() else {
-        return;
-    };
-    let mut manager = VirtualManager::new(replacements);
-    let Ok(Some(handle)) = manager.open_by_hash(&first.archive_name, first.hash) else {
-        println!("virtualization_probe: failed to open first replacement");
-        return;
-    };
-    let mut buffer = [0u8; 8];
-    match manager.read(handle, &mut buffer) {
-        Ok(read) => println!(
-            "virtualization_probe: archive={} hash=0x{:08x} first_bytes={}",
-            first.archive_name,
-            first.hash,
-            text_preview(&buffer[..read])
-        ),
-        Err(error) => println!("virtualization_probe: read failed: {error}"),
-    }
-    manager.close(handle);
-}
-
 fn read_directory_names_or_exit(folder: &str) -> Vec<String> {
     let mut names = Vec::new();
     let entries = match fs::read_dir(Path::new(folder)) {
@@ -525,11 +443,7 @@ fn read_directory_names_or_exit(folder: &str) -> Vec<String> {
     names
 }
 
-fn print_scan_summary(
-    folder: &str,
-    catalog_entries: usize,
-    scanned: &[oppw4_rdb::VirtualizedFile<'_>],
-) {
+fn print_scan_summary(folder: &str, catalog_entries: usize, scanned: &[rdb::VirtualizedFile<'_>]) {
     let matched = scanned.iter().filter(|file| file.block.is_some()).count();
     let hash_missing = scanned
         .iter()
@@ -545,7 +459,7 @@ fn print_scan_summary(
     println!("non_hash_names: {named}");
 }
 
-fn print_scan_entries(scanned: &[oppw4_rdb::VirtualizedFile<'_>]) {
+fn print_scan_entries(scanned: &[rdb::VirtualizedFile<'_>]) {
     for file in scanned {
         match (file.hash, file.block) {
             (Some(hash), Some(block)) => {

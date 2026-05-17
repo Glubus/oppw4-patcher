@@ -1,0 +1,4 @@
+[plugin]
+id = "skin_patcher"
+version = "0.1.0"
+entry = "skin_patcher.dll"

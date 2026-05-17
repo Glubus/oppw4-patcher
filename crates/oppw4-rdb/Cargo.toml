@@ -1,8 +1,0 @@
-[package]
-name = "oppw4-rdb"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
-
-[dependencies]
-zip.workspace = true

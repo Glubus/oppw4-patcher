@@ -555,7 +555,8 @@ This is good news for a Rust rewrite: cloning the loader does not require immedi
 
 ### Milestone 4: Modern Loader Features
 
-- `mods/<mod_name>/mod.toml`
+- `plugins/<plugin_id>/plugin.toml`
+- `plugins/<plugin_id>/mods/`
 - load order / priorities
 - conflict detection
 - profiles
@@ -587,18 +588,18 @@ This is good news for a Rust rewrite: cloning the loader does not require immedi
 
 ## Rust RDB Parser Progress
 
-Created a Rust Cargo workspace with `oppw4-rdb-tools`, a small crate for validating the `.rdb` format outside Ghidra.
+Created a Rust Cargo workspace with `rdb-tools`, a small crate for validating the `.rdb` format outside Ghidra.
 
 Current workspace layout:
 
 - root `Cargo.toml`: workspace
-- `oppw4-rdb-tools/src/rdb.rs`: RDB header/block parser
-- `oppw4-rdb-tools/src/address.rs`: RDB address tail parser
-- `oppw4-rdb-tools/src/catalog.rs`: embedded DLL `name -> hash` catalog parser
-- `oppw4-rdb-tools/src/hash.rs`: `0x...` filename hash parser
-- `oppw4-rdb-tools/src/scan.rs`: virtualized mod file scanner
-- `oppw4-rdb-tools/src/bytes.rs`: low-level byte helpers
-- `oppw4-rdb-tools/src/main.rs`: CLI wiring only
+- `rdb-tools/src/rdb.rs`: RDB header/block parser
+- `rdb-tools/src/address.rs`: RDB address tail parser
+- `rdb-tools/src/catalog.rs`: embedded DLL `name -> hash` catalog parser
+- `rdb-tools/src/hash.rs`: `0x...` filename hash parser
+- `rdb-tools/src/scan.rs`: virtualized mod file scanner
+- `rdb-tools/src/bytes.rs`: low-level byte helpers
+- `rdb-tools/src/main.rs`: CLI wiring only
 - `oppw4-dinput8-proxy`: Rust `cdylib` passive `dinput8.dll` proxy
 
 Current parser supports:
@@ -619,10 +620,10 @@ Current parser supports:
 
 Copied real index files into local fixtures:
 
-- `oppw4-rdb-tools/fixtures/rdb/SequenceEditor.rdb`
-- `oppw4-rdb-tools/fixtures/rdb/CharacterEditor.rdb`
-- `oppw4-rdb-tools/fixtures/rdb/ScreenLayout.rdb`
-- `oppw4-rdb-tools/fixtures/rdb/MaterialEditor.rdb`
+- `rdb-tools/fixtures/rdb/SequenceEditor.rdb`
+- `rdb-tools/fixtures/rdb/CharacterEditor.rdb`
+- `rdb-tools/fixtures/rdb/ScreenLayout.rdb`
+- `rdb-tools/fixtures/rdb/MaterialEditor.rdb`
 
 Validation results:
 
@@ -655,7 +656,7 @@ Folder scan results using the catalog:
 Global scan command:
 
 ```powershell
-cargo run -p oppw4-rdb-tools -- --scan-root "D:\SteamLibrary\steamapps\common\OPPW4\OPPW4_PATCHER" --rdb-root "D:\SteamLibrary\steamapps\common\OPPW4\File\CMN\AssetRelease\Retail" --catalog .\oppw4-ghidra\dinput8.dll
+cargo run -p rdb-tools -- --scan-root "D:\SteamLibrary\steamapps\common\OPPW4\OPPW4_PATCHER" --rdb-root "D:\SteamLibrary\steamapps\common\OPPW4\File\CMN\AssetRelease\Retail" --catalog .\oppw4-ghidra\dinput8.dll
 ```
 
 Global scan result:
@@ -682,7 +683,7 @@ Current archive counts:
 
 Virtualization table:
 
-- `oppw4-rdb-tools/src/virtual_table.rs`
+- `rdb-tools/src/virtual_table.rs`
 - Builds `VirtualReplacement` entries from matched scan results only.
 - Each entry currently stores:
   - archive name
@@ -698,7 +699,7 @@ This is not the final hook table yet, but it is the clean pre-hook representatio
 
 Virtual file model:
 
-- `oppw4-rdb-tools/src/virtual_file.rs`
+- `rdb-tools/src/virtual_file.rs`
 - `VirtualFile<R>` wraps any `Read + Seek` source.
 - Tracks:
   - virtual size
@@ -718,8 +719,8 @@ This models the core behavior the future hooked `ReadFile`/`SetFilePointer` path
 
 Virtual handle / manager model:
 
-- `oppw4-rdb-tools/src/virtual_handles.rs`
-- `oppw4-rdb-tools/src/virtual_manager.rs`
+- `rdb-tools/src/virtual_handles.rs`
+- `rdb-tools/src/virtual_manager.rs`
 - `VirtualHandleTable` allocates monotonic fake handles.
 - Supports:
   - open replacement
@@ -831,7 +832,7 @@ Hook-layer smoke test:
 Catalog export command:
 
 ```powershell
-cargo run -p oppw4-rdb-tools -- --export-catalog .\oppw4-ghidra\dinput8.dll .\name_hash_catalog.txt
+cargo run -p rdb-tools -- --export-catalog .\oppw4-ghidra\dinput8.dll .\name_hash_catalog.txt
 ```
 
 Generated:
@@ -891,10 +892,10 @@ Open meaning:
 CLI command:
 
 ```powershell
-cargo run -p oppw4-rdb-tools -- .\oppw4-rdb-tools\fixtures\rdb\CharacterEditor.rdb
-cargo run -p oppw4-rdb-tools -- .\oppw4-rdb-tools\fixtures\rdb\CharacterEditor.rdb 0x3b359352
-cargo run -p oppw4-rdb-tools -- .\oppw4-rdb-tools\fixtures\rdb\CharacterEditor.rdb --scan "D:\SteamLibrary\steamapps\common\OPPW4\OPPW4_PATCHER\CharacterEditor" --catalog .\oppw4-ghidra\dinput8.dll
-cargo run -p oppw4-rdb-tools -- --scan-root "D:\SteamLibrary\steamapps\common\OPPW4\OPPW4_PATCHER" --rdb-root "D:\SteamLibrary\steamapps\common\OPPW4\File\CMN\AssetRelease\Retail" --catalog .\oppw4-ghidra\dinput8.dll
+cargo run -p rdb-tools -- .\rdb-tools\fixtures\rdb\CharacterEditor.rdb
+cargo run -p rdb-tools -- .\rdb-tools\fixtures\rdb\CharacterEditor.rdb 0x3b359352
+cargo run -p rdb-tools -- .\rdb-tools\fixtures\rdb\CharacterEditor.rdb --scan "D:\SteamLibrary\steamapps\common\OPPW4\OPPW4_PATCHER\CharacterEditor" --catalog .\oppw4-ghidra\dinput8.dll
+cargo run -p rdb-tools -- --scan-root "D:\SteamLibrary\steamapps\common\OPPW4\OPPW4_PATCHER" --rdb-root "D:\SteamLibrary\steamapps\common\OPPW4\File\CMN\AssetRelease\Retail" --catalog .\oppw4-ghidra\dinput8.dll
 ```
 
 Next parser step:

@@ -224,9 +224,9 @@ fn character_info_table(lua: &Lua, character: &Character) -> mlua::Result<Table>
         Some(playable_id) => table.set("playable_id", playable_id)?,
         None => table.set("playable_id", Value::Nil)?,
     }
-    table.set("name", character.canonical)?;
-    table.set("display_name", character.display_name)?;
-    table.set("model", character.model_stem)?;
+    table.set("name", character.canonical.as_str())?;
+    table.set("display_name", character.display_name.as_str())?;
+    table.set("model", character.model_stem.as_str())?;
     Ok(table)
 }
 

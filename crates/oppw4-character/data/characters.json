@@ -1,0 +1,930 @@
+[
+  {
+    "playable_id": 0,
+    "model_id": 0,
+    "canonical": "luffy",
+    "display_name": "Monkey D. Luffy",
+    "model_stem": "MPLC000_Luffy",
+    "aliases": [
+      "mugiwara",
+      "straw_hat",
+      "monkey_d_luffy"
+    ]
+  },
+  {
+    "playable_id": 1,
+    "model_id": 1,
+    "canonical": "zoro",
+    "display_name": "Roronoa Zoro",
+    "model_stem": "MPLC001_Zoro",
+    "aliases": [
+      "roronoa_zoro",
+      "zorro"
+    ]
+  },
+  {
+    "playable_id": 2,
+    "model_id": 2,
+    "canonical": "nami",
+    "display_name": "Nami",
+    "model_stem": "MPLC002_Nami"
+  },
+  {
+    "playable_id": 3,
+    "model_id": 3,
+    "canonical": "usopp",
+    "display_name": "Usopp",
+    "model_stem": "MPLC003_Usopp"
+  },
+  {
+    "playable_id": 4,
+    "model_id": 4,
+    "canonical": "sanji",
+    "display_name": "Sanji",
+    "model_stem": "MPLC004_Sanji"
+  },
+  {
+    "playable_id": 5,
+    "model_id": 5,
+    "canonical": "chopper",
+    "display_name": "Chopper",
+    "model_stem": "MPLC005_Chopper"
+  },
+  {
+    "playable_id": 6,
+    "model_id": 6,
+    "canonical": "robin",
+    "display_name": "Robin",
+    "model_stem": "MPLC006_Robin"
+  },
+  {
+    "playable_id": 7,
+    "model_id": 7,
+    "canonical": "franky",
+    "display_name": "Franky",
+    "model_stem": "MPLC007_Franky"
+  },
+  {
+    "playable_id": 8,
+    "model_id": 8,
+    "canonical": "brook",
+    "display_name": "Brook",
+    "model_stem": "MPLC008_Brook"
+  },
+  {
+    "playable_id": 9,
+    "model_id": 9,
+    "canonical": "ace",
+    "display_name": "Ace",
+    "model_stem": "MPLC009_Ace",
+    "aliases": [
+      "portgas_d_ace"
+    ]
+  },
+  {
+    "playable_id": 10,
+    "model_id": 10,
+    "canonical": "hancock",
+    "display_name": "Boa Hancock",
+    "model_stem": "MPLC010_Hancock",
+    "aliases": [
+      "boa_hancock"
+    ]
+  },
+  {
+    "playable_id": 11,
+    "model_id": 11,
+    "canonical": "jimbei",
+    "display_name": "Jimbei",
+    "model_stem": "MPLC011_Jimbei",
+    "aliases": [
+      "jinbe",
+      "jinbei"
+    ]
+  },
+  {
+    "playable_id": 12,
+    "model_id": 12,
+    "canonical": "newgate",
+    "display_name": "Edward Newgate",
+    "model_stem": "MPLC012_Newgate",
+    "aliases": [
+      "whitebeard",
+      "barbe_blanche",
+      "edward_newgate"
+    ]
+  },
+  {
+    "playable_id": 13,
+    "model_id": 13,
+    "canonical": "buggy",
+    "display_name": "Buggy",
+    "model_stem": "MPLC013_Buggy"
+  },
+  {
+    "playable_id": 14,
+    "model_id": 14,
+    "canonical": "mihawk",
+    "display_name": "Mihawk",
+    "model_stem": "MPLC014_Mihawk",
+    "aliases": [
+      "dracule_mihawk"
+    ]
+  },
+  {
+    "playable_id": 15,
+    "model_id": 15,
+    "canonical": "crocodile",
+    "display_name": "Crocodile",
+    "model_stem": "MPLC015_Crocodile"
+  },
+  {
+    "playable_id": 16,
+    "model_id": 16,
+    "canonical": "teach",
+    "display_name": "Marshall D. Teach",
+    "model_stem": "MPLC016_Teach",
+    "aliases": [
+      "blackbeard",
+      "marshall_d_teach"
+    ]
+  },
+  {
+    "playable_id": null,
+    "model_id": 17,
+    "canonical": "kuma",
+    "display_name": "Kuma",
+    "model_stem": "MPLC017_Kuma"
+  },
+  {
+    "playable_id": 17,
+    "model_id": 18,
+    "canonical": "kizaru",
+    "display_name": "Kizaru",
+    "model_stem": "MPLC018_Kizaru",
+    "aliases": [
+      "borsalino"
+    ]
+  },
+  {
+    "playable_id": 18,
+    "model_id": 19,
+    "canonical": "aokiji",
+    "display_name": "Aokiji",
+    "model_stem": "MPLC019_Aokiji",
+    "aliases": [
+      "kuzan"
+    ]
+  },
+  {
+    "playable_id": 19,
+    "model_id": 20,
+    "canonical": "akainu",
+    "display_name": "Akainu",
+    "model_stem": "MPLC020_Akainu",
+    "aliases": [
+      "sakazuki"
+    ]
+  },
+  {
+    "playable_id": 20,
+    "model_id": 23,
+    "canonical": "smoker",
+    "display_name": "Smoker",
+    "model_stem": "MPLC023_Smoker"
+  },
+  {
+    "playable_id": 21,
+    "model_id": 24,
+    "canonical": "marco",
+    "display_name": "Marco",
+    "model_stem": "MPLC024_Marco"
+  },
+  {
+    "playable_id": 48,
+    "model_id": 25,
+    "canonical": "garp",
+    "display_name": "Monkey D. Garp",
+    "model_stem": "MPLC025_Garp",
+    "aliases": [
+      "monkey_d_garp"
+    ]
+  },
+  {
+    "playable_id": 22,
+    "model_id": 26,
+    "canonical": "law",
+    "display_name": "Law",
+    "model_stem": "MPLC026_Law",
+    "aliases": [
+      "trafalgar_law",
+      "trafalgar_d_water_law"
+    ]
+  },
+  {
+    "playable_id": 23,
+    "model_id": 27,
+    "canonical": "doflamingo",
+    "display_name": "Donquixote Doflamingo",
+    "model_stem": "MPLC027_Doflamingo",
+    "aliases": [
+      "doffy",
+      "donquixote_doflamingo"
+    ]
+  },
+  {
+    "playable_id": 24,
+    "model_id": 28,
+    "canonical": "tashigi",
+    "display_name": "Tashigi",
+    "model_stem": "MPLC028_Tashigi"
+  },
+  {
+    "playable_id": 25,
+    "model_id": 30,
+    "canonical": "fujitora",
+    "display_name": "Fujitora",
+    "model_stem": "MPLC030_Fujitora"
+  },
+  {
+    "playable_id": 26,
+    "model_id": 31,
+    "canonical": "sabo",
+    "display_name": "Sabo",
+    "model_stem": "MPLC031_Sabo"
+  },
+  {
+    "playable_id": 27,
+    "model_id": 32,
+    "canonical": "lucci",
+    "display_name": "Lucci",
+    "model_stem": "MPLC032_Lucci",
+    "aliases": [
+      "rob_lucci"
+    ]
+  },
+  {
+    "playable_id": 28,
+    "model_id": 35,
+    "canonical": "ivankov",
+    "display_name": "Ivankov",
+    "model_stem": "MPLC035_Ivankov"
+  },
+  {
+    "playable_id": 29,
+    "model_id": 36,
+    "canonical": "shanks",
+    "display_name": "Shanks",
+    "model_stem": "MPLC036_Shanks"
+  },
+  {
+    "playable_id": 30,
+    "model_id": 37,
+    "canonical": "bartolomeo",
+    "display_name": "Bartolomeo",
+    "model_stem": "MPLC037_Bartolomeo"
+  },
+  {
+    "playable_id": 31,
+    "model_id": 38,
+    "canonical": "cavendish",
+    "display_name": "Cavendish",
+    "model_stem": "MPLC038_Cavendish"
+  },
+  {
+    "playable_id": 32,
+    "model_id": 40,
+    "canonical": "carrot",
+    "display_name": "Carrot",
+    "model_stem": "MPLC040_Carrot"
+  },
+  {
+    "playable_id": 33,
+    "model_id": 41,
+    "canonical": "reiju",
+    "display_name": "Reiju",
+    "model_stem": "MPLC041_Reiju"
+  },
+  {
+    "playable_id": 34,
+    "model_id": 42,
+    "canonical": "ichiji",
+    "display_name": "Ichiji",
+    "model_stem": "MPLC042_Ichiji"
+  },
+  {
+    "playable_id": 35,
+    "model_id": 43,
+    "canonical": "niji",
+    "display_name": "Niji",
+    "model_stem": "MPLC043_Niji"
+  },
+  {
+    "playable_id": 36,
+    "model_id": 44,
+    "canonical": "yonji",
+    "display_name": "Yonji",
+    "model_stem": "MPLC044_Yonji"
+  },
+  {
+    "playable_id": 37,
+    "model_id": 45,
+    "canonical": "bege",
+    "display_name": "Bege",
+    "model_stem": "MPLC045_Bege",
+    "aliases": [
+      "capone_bege"
+    ]
+  },
+  {
+    "playable_id": 38,
+    "model_id": 46,
+    "canonical": "linlin",
+    "display_name": "Charlotte Linlin",
+    "model_stem": "MPLC046_Linlin",
+    "aliases": [
+      "big_mom",
+      "bigmom",
+      "charlotte_linlin"
+    ]
+  },
+  {
+    "playable_id": 39,
+    "model_id": 47,
+    "canonical": "katakuri",
+    "display_name": "Katakuri",
+    "model_stem": "MPLC047_Katakuri",
+    "aliases": [
+      "charlotte_katakuri"
+    ]
+  },
+  {
+    "playable_id": 40,
+    "model_id": 48,
+    "canonical": "kaido",
+    "display_name": "Kaido",
+    "model_stem": "MPLC048_Kaido"
+  },
+  {
+    "playable_id": 41,
+    "model_id": 49,
+    "canonical": "kid",
+    "display_name": "Eustass Kid",
+    "model_stem": "MPLC049_Kid",
+    "aliases": [
+      "eustass_kid",
+      "kidd"
+    ]
+  },
+  {
+    "playable_id": 42,
+    "model_id": 50,
+    "canonical": "hawkins",
+    "display_name": "Hawkins",
+    "model_stem": "MPLC050_Hawkins_NW"
+  },
+  {
+    "playable_id": 49,
+    "model_id": 56,
+    "canonical": "mr2",
+    "display_name": "Mr. 2",
+    "model_stem": "MNPC005_Mr2",
+    "aliases": [
+      "bon_clay",
+      "bonclay"
+    ]
+  },
+  {
+    "playable_id": 50,
+    "model_id": 57,
+    "canonical": "mr3",
+    "display_name": "Mr. 3",
+    "model_stem": "MNPC006_Mr3",
+    "aliases": [
+      "galdino"
+    ]
+  },
+  {
+    "playable_id": 51,
+    "model_id": 58,
+    "canonical": "kaku",
+    "display_name": "Kaku",
+    "model_stem": "MNPC007_Kaku"
+  },
+  {
+    "playable_id": 52,
+    "model_id": 59,
+    "canonical": "jabra",
+    "display_name": "Jabra",
+    "model_stem": "MNPC008_Jabra"
+  },
+  {
+    "playable_id": 53,
+    "model_id": 60,
+    "canonical": "blueno",
+    "display_name": "Blueno",
+    "model_stem": "MNPC009_Blueno"
+  },
+  {
+    "playable_id": 55,
+    "model_id": 62,
+    "canonical": "pacifista",
+    "display_name": "Pacifista",
+    "model_stem": "MNPC011_Pacifista"
+  },
+  {
+    "playable_id": 56,
+    "model_id": 70,
+    "canonical": "mr1",
+    "display_name": "Mr. 1",
+    "model_stem": "MNPC019_Mr1",
+    "aliases": [
+      "daz_bones"
+    ]
+  },
+  {
+    "playable_id": 57,
+    "model_id": 71,
+    "canonical": "bellamy",
+    "display_name": "Bellamy",
+    "model_stem": "MNPC020_Bellamy_NW"
+  },
+  {
+    "playable_id": 58,
+    "model_id": 76,
+    "canonical": "burgess",
+    "display_name": "Burgess",
+    "model_stem": "MNPC025_Burgess"
+  },
+  {
+    "playable_id": 59,
+    "model_id": 77,
+    "canonical": "coby",
+    "display_name": "Coby",
+    "model_stem": "MNPC026_Coby",
+    "aliases": [
+      "koby"
+    ]
+  },
+  {
+    "playable_id": 60,
+    "model_id": 79,
+    "canonical": "sengoku_chg",
+    "display_name": "Sengoku Change",
+    "model_stem": "MNPC028_Sengoku_Chg"
+  },
+  {
+    "playable_id": 61,
+    "model_id": 80,
+    "canonical": "kinemon_npc",
+    "display_name": "Kinemon NPC",
+    "model_stem": "MNPC029_Kinemon"
+  },
+  {
+    "playable_id": 62,
+    "model_id": 83,
+    "canonical": "pica_giant",
+    "display_name": "Pica Giant",
+    "model_stem": "MNPC032_PicaG"
+  },
+  {
+    "playable_id": 63,
+    "model_id": 86,
+    "canonical": "pica",
+    "display_name": "Pica",
+    "model_stem": "MNPC035_PicaC"
+  },
+  {
+    "playable_id": 66,
+    "model_id": 89,
+    "canonical": "diamante",
+    "display_name": "Diamante",
+    "model_stem": "MNPC038_Diamante"
+  },
+  {
+    "playable_id": 67,
+    "model_id": 91,
+    "canonical": "jack_chg",
+    "display_name": "Jack Change",
+    "model_stem": "MNPC040_Jack_Chg"
+  },
+  {
+    "playable_id": 68,
+    "model_id": 92,
+    "canonical": "perospero",
+    "display_name": "Perospero",
+    "model_stem": "MNPC041_Perospero"
+  },
+  {
+    "playable_id": 69,
+    "model_id": 93,
+    "canonical": "drake_chg_npc",
+    "display_name": "Drake Change NPC",
+    "model_stem": "MNPC042_Drake_Chg"
+  },
+  {
+    "playable_id": 70,
+    "model_id": 65,
+    "canonical": "jozu",
+    "display_name": "Jozu",
+    "model_stem": "MNPC014_Jozu"
+  },
+  {
+    "playable_id": 153,
+    "model_id": 280,
+    "canonical": "smoothie",
+    "display_name": "Smoothie",
+    "model_stem": "MDLC041_Smoothie"
+  },
+  {
+    "playable_id": 155,
+    "model_id": 281,
+    "canonical": "cracker",
+    "display_name": "Cracker",
+    "model_stem": "MDLC042_Cracker"
+  },
+  {
+    "playable_id": 156,
+    "model_id": 282,
+    "canonical": "cracker_b",
+    "display_name": "Cracker B",
+    "model_stem": "MDLC043_Cracker_B"
+  },
+  {
+    "playable_id": 157,
+    "model_id": 283,
+    "canonical": "judge",
+    "display_name": "Judge",
+    "model_stem": "MDLC044_Judge_PC"
+  },
+  {
+    "playable_id": 158,
+    "model_id": 284,
+    "canonical": "drake",
+    "display_name": "Drake",
+    "model_stem": "MDLC045_Drake_PC"
+  },
+  {
+    "playable_id": 160,
+    "model_id": 285,
+    "canonical": "killer",
+    "display_name": "Killer",
+    "model_stem": "MDLC046_Killer"
+  },
+  {
+    "playable_id": 161,
+    "model_id": 286,
+    "canonical": "urouge",
+    "display_name": "Urouge",
+    "model_stem": "MDLC047_Urouge"
+  },
+  {
+    "playable_id": 163,
+    "model_id": 287,
+    "canonical": "kiku",
+    "display_name": "Kiku",
+    "model_stem": "MDLC048_Kiku"
+  },
+  {
+    "playable_id": 164,
+    "model_id": 288,
+    "canonical": "kinemon",
+    "display_name": "Kinemon",
+    "model_stem": "MDLC049_Kinemon_PC"
+  },
+  {
+    "playable_id": 165,
+    "model_id": 289,
+    "canonical": "oden",
+    "display_name": "Oden",
+    "model_stem": "MDLC050_Oden"
+  },
+  {
+    "playable_id": 159,
+    "model_id": 290,
+    "canonical": "drake_chg",
+    "display_name": "Drake Chg",
+    "model_stem": "MDLC051_Drake_Chg_PC"
+  },
+  {
+    "playable_id": 162,
+    "model_id": 291,
+    "canonical": "urouge_chg",
+    "display_name": "Urouge Chg",
+    "model_stem": "MDLC052_Urouge_Chg"
+  },
+  {
+    "playable_id": 166,
+    "model_id": 293,
+    "canonical": "luffy_oni",
+    "display_name": "Monkey D. Luffy (Onigashima)",
+    "model_stem": "MDLC054_Luffy_Oni",
+    "aliases": [
+      "oni_luffy"
+    ]
+  },
+  {
+    "playable_id": 167,
+    "model_id": 294,
+    "canonical": "luffy_n_oni",
+    "display_name": "Monkey D. Luffy (New Onigashima)",
+    "model_stem": "MDLC055_Luffy_N_Oni"
+  },
+  {
+    "playable_id": 168,
+    "model_id": 295,
+    "canonical": "luffy_n_gear5",
+    "display_name": "Monkey D. Luffy Gear 5",
+    "model_stem": "MDLC056_Luffy_N_Gear5",
+    "aliases": [
+      "gear5",
+      "gear_5"
+    ]
+  },
+  {
+    "playable_id": 169,
+    "model_id": 296,
+    "canonical": "kaido_hb",
+    "display_name": "Kaido Hybrid",
+    "model_stem": "MDLC057_Kaido_HB",
+    "aliases": [
+      "hybrid_kaido"
+    ]
+  },
+  {
+    "playable_id": 171,
+    "model_id": 297,
+    "canonical": "yamato",
+    "display_name": "Yamato",
+    "model_stem": "MDLC058_Yamato"
+  },
+  {
+    "playable_id": 172,
+    "model_id": 298,
+    "canonical": "yamato_hb",
+    "display_name": "Yamato Hybrid",
+    "model_stem": "MDLC059_Yamato_HB",
+    "aliases": [
+      "hybrid_yamato"
+    ]
+  },
+  {
+    "playable_id": 174,
+    "model_id": 299,
+    "canonical": "uta",
+    "display_name": "Uta",
+    "model_stem": "MDLC060_Uta"
+  },
+  {
+    "playable_id": 175,
+    "model_id": 300,
+    "canonical": "uta_armor",
+    "display_name": "Uta Armor",
+    "model_stem": "MDLC061_Uta_Armor"
+  },
+  {
+    "playable_id": 176,
+    "model_id": 301,
+    "canonical": "roger",
+    "display_name": "Roger",
+    "model_stem": "MDLC062_Roger"
+  },
+  {
+    "playable_id": 177,
+    "model_id": 302,
+    "canonical": "shanks_red",
+    "display_name": "Shanks (Red)",
+    "model_stem": "MDLC063_Shanks_RED",
+    "aliases": [
+      "film_red_shanks"
+    ]
+  },
+  {
+    "playable_id": 178,
+    "model_id": 303,
+    "canonical": "coby_red",
+    "display_name": "Coby Red",
+    "model_stem": "MDLC064_Coby_RED",
+    "aliases": [
+      "koby_red"
+    ]
+  },
+  {
+    "playable_id": 179,
+    "model_id": 304,
+    "canonical": "garp_yng",
+    "display_name": "Monkey D. Garp (Young)",
+    "model_stem": "MDLC065_Garp_YNG",
+    "aliases": [
+      "young_garp"
+    ]
+  },
+  {
+    "playable_id": 180,
+    "model_id": 305,
+    "canonical": "rayleigh_yng",
+    "display_name": "Rayleigh Young",
+    "model_stem": "MDLC066_Rayleigh_YNG",
+    "aliases": [
+      "young_rayleigh"
+    ]
+  },
+  {
+    "playable_id": 170,
+    "model_id": 306,
+    "canonical": "kaido_d2",
+    "display_name": "Kaido Dragon",
+    "model_stem": "MDLC067_Kaido_D2",
+    "aliases": [
+      "dragon_kaido"
+    ]
+  },
+  {
+    "playable_id": 173,
+    "model_id": 307,
+    "canonical": "yamato_s",
+    "display_name": "Yamato S",
+    "model_stem": "MDLC068_Yamato_S"
+  },
+  {
+    "playable_id": 181,
+    "model_id": 310,
+    "canonical": "uta_note",
+    "display_name": "Uta Note",
+    "model_stem": "MDLC071_Uta_Note"
+  },
+  {
+    "playable_id": 182,
+    "model_id": 311,
+    "canonical": "lucci_cp0",
+    "display_name": "Lucci CP0",
+    "model_stem": "MDLC072_Lucci_CP0",
+    "aliases": [
+      "cp0_lucci"
+    ]
+  },
+  {
+    "playable_id": 183,
+    "model_id": 313,
+    "canonical": "lucci_c_bs",
+    "display_name": "Lucci Beast",
+    "model_stem": "MDLC074_Lucci_C_BS"
+  },
+  {
+    "playable_id": 184,
+    "model_id": 314,
+    "canonical": "bonney_egh",
+    "display_name": "Bonney",
+    "model_stem": "MDLC075_Bonney_EGH",
+    "aliases": [
+      "bonney"
+    ]
+  },
+  {
+    "playable_id": 185,
+    "model_id": 316,
+    "canonical": "bonney_g",
+    "display_name": "Bonney Gear",
+    "model_stem": "MDLC077_Bonney_G",
+    "aliases": [
+      "bonney_gear"
+    ]
+  },
+  {
+    "playable_id": 186,
+    "model_id": 318,
+    "canonical": "bonney_frf",
+    "display_name": "Bonney Future",
+    "model_stem": "MDLC079_Bonney_FRF",
+    "aliases": [
+      "bonney_future"
+    ]
+  },
+  {
+    "playable_id": 187,
+    "model_id": 319,
+    "canonical": "ssnake",
+    "display_name": "S-Snake",
+    "model_stem": "MDLC080_SSnake",
+    "aliases": [
+      "s_snake",
+      "s-snake"
+    ]
+  },
+  {
+    "playable_id": 188,
+    "model_id": 320,
+    "canonical": "kuma_egh",
+    "display_name": "Kuma Egghead",
+    "model_stem": "MDLC081_Kuma_EGH",
+    "aliases": [
+      "egghead_kuma"
+    ]
+  },
+  {
+    "playable_id": 189,
+    "model_id": 321,
+    "canonical": "luffy_n_bny",
+    "display_name": "Monkey D. Luffy Bonney",
+    "model_stem": "MDLC082_Luffy_N_BNY",
+    "aliases": [
+      "luffy_bonney"
+    ]
+  },
+  {
+    "playable_id": 190,
+    "model_id": 322,
+    "canonical": "eneru_d",
+    "display_name": "Eneru Divine",
+    "model_stem": "MDLC083_Eneru_D",
+    "aliases": [
+      "eneru",
+      "enel"
+    ]
+  },
+  {
+    "playable_id": 191,
+    "model_id": 323,
+    "canonical": "eneru_a_d",
+    "display_name": "Eneru Amaru",
+    "model_stem": "MDLC084_Eneru_A_D",
+    "aliases": [
+      "enel_amaru"
+    ]
+  },
+  {
+    "playable_id": 192,
+    "model_id": 324,
+    "canonical": "eneru_th_b",
+    "display_name": "Eneru Thunder Black",
+    "model_stem": "MDLC085_Eneru_TH_B",
+    "aliases": [
+      "enel_thunder_black"
+    ]
+  },
+  {
+    "playable_id": 193,
+    "model_id": 325,
+    "canonical": "eneru_th_w",
+    "display_name": "Eneru Thunder White",
+    "model_stem": "MDLC086_Eneru_TH_W",
+    "aliases": [
+      "enel_thunder_white"
+    ]
+  },
+  {
+    "playable_id": 194,
+    "model_id": 326,
+    "canonical": "eneru_th_d",
+    "display_name": "Eneru Thunder Divine",
+    "model_stem": "MDLC087_Eneru_TH_D",
+    "aliases": [
+      "enel_thunder_divine"
+    ]
+  },
+  {
+    "playable_id": 195,
+    "model_id": 327,
+    "canonical": "z_d",
+    "display_name": "Z",
+    "model_stem": "MDLC088_Z_D",
+    "aliases": [
+      "z",
+      "zephyr"
+    ]
+  },
+  {
+    "playable_id": 196,
+    "model_id": 328,
+    "canonical": "king",
+    "display_name": "King",
+    "model_stem": "MDLC089_King"
+  },
+  {
+    "playable_id": 197,
+    "model_id": 329,
+    "canonical": "king_bs",
+    "display_name": "King Beast",
+    "model_stem": "MDLC090_King_BS",
+    "aliases": [
+      "king_beast"
+    ]
+  },
+  {
+    "playable_id": 198,
+    "model_id": 330,
+    "canonical": "king_dr",
+    "display_name": "King Dragon",
+    "model_stem": "MDLC091_King_DR",
+    "aliases": [
+      "king_dragon"
+    ]
+  },
+  {
+    "playable_id": 199,
+    "model_id": 331,
+    "canonical": "gatling_n",
+    "display_name": "Gatling N",
+    "model_stem": "MDLC092_Gatling_N"
+  }
+]

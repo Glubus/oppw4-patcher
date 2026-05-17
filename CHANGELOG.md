@@ -21,6 +21,7 @@ This release turns the old patcher into a plugin-based OPPW4 modloader foundatio
   - cycle mode `after_animation`
 - Effect ID observation diagnostics behind debug config.
 - Structured character data in editable JSON.
+- Missing host/plugin TOML configs are created automatically without overwriting existing files.
 
 ### Changed
 

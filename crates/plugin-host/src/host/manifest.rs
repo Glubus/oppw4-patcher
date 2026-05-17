@@ -18,6 +18,16 @@ pub(crate) struct PluginManifest {
 impl PluginManifest {
     pub(crate) fn read_from_dir(plugin_dir: &Path) -> Option<Self> {
         let manifest_path = plugin_dir.join("plugin.toml");
+        if !manifest_path.is_file() {
+            if let Err(error) = create_default_manifest(plugin_dir, &manifest_path) {
+                log::write_line(format!(
+                    "plugin host: manifest missing path={} error={error}",
+                    manifest_path.display()
+                ));
+                return None;
+            }
+        }
+
         let text = match fs::read_to_string(&manifest_path) {
             Ok(text) => text,
             Err(error) => {
@@ -73,6 +83,61 @@ impl PluginManifest {
             entry_path: entry_file_path(plugin_dir, entry)?,
             log_root: plugin_dir.join("logs"),
         })
+    }
+}
+
+fn create_default_manifest(plugin_dir: &Path, manifest_path: &Path) -> Result<(), String> {
+    let entry = infer_entry_file(plugin_dir)?;
+    let id = plugin_dir
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(sanitize_plugin_id)
+        .filter(|id| id != "unknown_plugin")
+        .ok_or_else(|| "cannot infer plugin id from folder name".to_string())?;
+    let text = format!(
+        "[plugin]\nid = \"{id}\"\nversion = \"0.2.0\"\nentry = \"{entry}\"\n"
+    );
+    fs::write(manifest_path, text).map_err(|error| error.to_string())
+}
+
+fn infer_entry_file(plugin_dir: &Path) -> Result<String, String> {
+    let folder_name = plugin_dir
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| "cannot infer plugin folder name".to_string())?;
+    let preferred = plugin_dir.join(format!("{folder_name}.dll"));
+    if preferred.is_file() {
+        return Ok(preferred
+            .file_name()
+            .and_then(|name| name.to_str())
+            .expect("preferred file name")
+            .to_string());
+    }
+
+    let mut dlls = fs::read_dir(plugin_dir)
+        .map_err(|error| error.to_string())?
+        .flatten()
+        .filter_map(|entry| {
+            let path = entry.path();
+            let is_dll = path
+                .extension()
+                .and_then(|extension| extension.to_str())
+                .is_some_and(|extension| extension.eq_ignore_ascii_case("dll"));
+            if is_dll {
+                path.file_name()
+                    .and_then(|name| name.to_str())
+                    .map(str::to_string)
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+    dlls.sort();
+
+    match dlls.as_slice() {
+        [entry] => Ok(entry.clone()),
+        [] => Err("cannot create plugin.toml without a dll in the plugin folder".to_string()),
+        _ => Err("cannot create plugin.toml because multiple dll files exist".to_string()),
     }
 }
 
@@ -186,7 +251,34 @@ mod tests {
     }
 
     #[test]
-    fn legacy_mod_toml_is_not_a_plugin_manifest() {
+    fn creates_plugin_toml_from_matching_dll_when_missing() {
+        let root = temp_root("auto-plugin-toml").join("fx_director");
+        fs::create_dir_all(&root).expect("temp plugin dir");
+        fs::write(root.join("fx_director.dll"), []).expect("plugin dll");
+
+        let manifest = PluginManifest::read_from_dir(&root).expect("manifest");
+
+        assert_eq!(manifest.id, "fx_director");
+        assert_eq!(manifest.version, "0.2.0");
+        assert_eq!(manifest.entry_path, root.join("fx_director.dll"));
+        assert!(root.join("plugin.toml").is_file());
+        let _ = fs::remove_dir_all(root.parent().expect("temp root"));
+    }
+
+    #[test]
+    fn does_not_create_plugin_toml_when_entry_is_ambiguous() {
+        let root = temp_root("ambiguous-plugin-toml");
+        fs::create_dir_all(&root).expect("temp plugin dir");
+        fs::write(root.join("a.dll"), []).expect("first dll");
+        fs::write(root.join("b.dll"), []).expect("second dll");
+
+        assert!(PluginManifest::read_from_dir(&root).is_none());
+        assert!(!root.join("plugin.toml").is_file());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn legacy_mod_toml_is_not_a_plugin_manifest_without_a_dll() {
         let root = temp_root("mod-toml");
         fs::create_dir_all(&root).expect("temp plugin dir");
         fs::write(

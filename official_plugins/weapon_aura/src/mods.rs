@@ -218,7 +218,12 @@ fn character_module(lua: &Lua, config: Arc<Mutex<AuraConfig>>) -> mlua::Result<T
 
 fn character_info_table(lua: &Lua, character: &Character) -> mlua::Result<Table> {
     let table = lua.create_table()?;
-    table.set("id", character.id)?;
+    table.set("id", character.model_id)?;
+    table.set("model_id", character.model_id)?;
+    match character.playable_id {
+        Some(playable_id) => table.set("playable_id", playable_id)?,
+        None => table.set("playable_id", Value::Nil)?,
+    }
     table.set("name", character.canonical)?;
     table.set("display_name", character.display_name)?;
     table.set("model", character.model_stem)?;

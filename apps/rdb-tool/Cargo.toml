@@ -1,12 +1,12 @@
 [package]
-name = "oppw4-rdb-tool"
+name = "rdb-tool"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [[bin]]
-name = "oppw4-rdb"
+name = "rdb"
 path = "src/main.rs"
 
 [dependencies]
-oppw4-rdb.workspace = true
+rdb.workspace = true

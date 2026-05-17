@@ -27,6 +27,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "asm"
+version = "0.1.0"
+
+[[package]]
 name = "autocfg"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -176,6 +180,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
 
 [[package]]
+name = "hooks"
+version = "0.1.0"
+dependencies = [
+ "asm",
+ "plugin-api",
+]
+
+[[package]]
 name = "indexmap"
 version = "2.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -223,6 +235,16 @@ name = "log"
 version = "0.4.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
+
+[[package]]
+name = "lua-api"
+version = "0.1.0"
+dependencies = [
+ "mlua",
+ "struct-api",
+ "toml",
+ "zip",
+]
 
 [[package]]
 name = "lua-src"
@@ -327,19 +349,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
-name = "oppw4-character"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "oppw4-dinput8-proxy"
 version = "0.1.0"
 dependencies = [
- "oppw4-hooks",
- "plugins_supports",
+ "asm",
+ "hooks",
+ "plugin-host",
+ "struct-api",
  "toml",
  "tracing",
  "tracing-appender",
@@ -348,54 +364,26 @@ dependencies = [
 ]
 
 [[package]]
-name = "oppw4-hooks"
+name = "oppw4-fx-director-plugin"
 version = "0.1.0"
 dependencies = [
- "oppw4-plugin-api",
-]
-
-[[package]]
-name = "oppw4-lua-support"
-version = "0.1.0"
-dependencies = [
+ "asm",
+ "lua-api",
  "mlua",
+ "plugin-api",
+ "struct-api",
  "toml",
  "zip",
-]
-
-[[package]]
-name = "oppw4-plugin-api"
-version = "0.1.0"
-
-[[package]]
-name = "oppw4-rdb"
-version = "0.1.0"
-
-[[package]]
-name = "oppw4-rdb-tool"
-version = "0.1.0"
-dependencies = [
- "oppw4-rdb",
 ]
 
 [[package]]
 name = "oppw4-skin-patcher-plugin"
 version = "0.1.0"
 dependencies = [
- "oppw4-plugin-api",
- "oppw4-rdb",
- "zip",
-]
-
-[[package]]
-name = "oppw4-weapon-aura-plugin"
-version = "0.1.0"
-dependencies = [
+ "lua-api",
  "mlua",
- "oppw4-character",
- "oppw4-lua-support",
- "oppw4-plugin-api",
- "toml",
+ "plugin-api",
+ "rdb",
  "zip",
 ]
 
@@ -435,12 +423,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
 
 [[package]]
-name = "plugins_supports"
+name = "plugin-api"
+version = "0.1.0"
+
+[[package]]
+name = "plugin-host"
 version = "0.1.0"
 dependencies = [
- "oppw4-hooks",
- "oppw4-lua-support",
- "oppw4-plugin-api",
+ "hooks",
+ "lua-api",
+ "mlua",
+ "plugin-api",
  "toml",
  "tracing",
 ]
@@ -467,6 +460,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "41f2619966050689382d2b44f664f4bc593e129785a36d6ee376ddf37259b924"
 dependencies = [
  "proc-macro2",
+]
+
+[[package]]
+name = "rdb"
+version = "0.1.0"
+
+[[package]]
+name = "rdb-tool"
+version = "0.1.0"
+dependencies = [
+ "rdb",
 ]
 
 [[package]]
@@ -604,6 +608,14 @@ name = "smallvec"
 version = "1.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
+
+[[package]]
+name = "struct-api"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "symlink"

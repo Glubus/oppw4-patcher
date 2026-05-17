@@ -9,8 +9,10 @@ crate-type = ["cdylib"]
 name = "dinput8"
 
 [dependencies]
-oppw4-hooks.workspace = true
-plugins_supports.workspace = true
+asm.workspace = true
+hooks.workspace = true
+plugin-host.workspace = true
+struct-api.workspace = true
 tracing.workspace = true
 tracing-appender.workspace = true
 tracing-subscriber.workspace = true

@@ -1,7 +1,8 @@
-use oppw4_plugin_api::{cstring_lossy, Oppw4PluginApi, OPPW4_PLUGIN_API_VERSION};
+use plugin_api::{cstring_lossy, Oppw4PluginApi, OPPW4_PLUGIN_API_VERSION};
 
 mod ffi;
 mod log;
+mod lua;
 mod mods;
 mod patching;
 mod rdb_tracker;
@@ -26,6 +27,7 @@ pub unsafe extern "system" fn oppw4_plugin_init(api: *const Oppw4PluginApi) -> i
         LEGACY_NAME_HASH_CATALOG_ZIP.len()
     ));
     api.log_line(&plugin_id, &message);
+    lua::register(api);
     runtime::initialize(api)
 }
 

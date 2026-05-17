@@ -2,14 +2,15 @@
 members = [
     "apps/dinput8-proxy",
     "apps/rdb-tool",
-    "crates/oppw4-character",
-    "crates/oppw4-hooks",
-    "crates/oppw4-lua-support",
-    "crates/oppw4-plugin-api",
-    "crates/oppw4-rdb",
-    "crates/plugins_supports",
+    "crates/struct-api",
+    "crates/asm",
+    "crates/hooks",
+    "crates/lua-api",
+    "crates/plugin-api",
+    "crates/rdb",
+    "crates/plugin-host",
     "official_plugins/skin_patcher",
-    "official_plugins/weapon_aura",
+    "official_plugins/fx_director",
 ]
 resolver = "2"
 
@@ -19,12 +20,13 @@ version = "0.1.0"
 license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
-oppw4-rdb = { path = "crates/oppw4-rdb" }
-oppw4-character = { path = "crates/oppw4-character" }
-oppw4-plugin-api = { path = "crates/oppw4-plugin-api" }
-oppw4-hooks = { path = "crates/oppw4-hooks" }
-oppw4-lua-support = { path = "crates/oppw4-lua-support" }
-plugins_supports = { path = "crates/plugins_supports" }
+rdb = { path = "crates/rdb" }
+struct-api = { path = "crates/struct-api" }
+asm = { path = "crates/asm" }
+plugin-api = { path = "crates/plugin-api" }
+hooks = { path = "crates/hooks" }
+lua-api = { path = "crates/lua-api" }
+plugin-host = { path = "crates/plugin-host" }
 mlua = { version = "0.10", features = ["lua54", "vendored"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

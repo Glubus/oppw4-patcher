@@ -1,6 +1,6 @@
 use std::{ffi::c_void, sync::OnceLock};
 
-use oppw4_plugin_api::{cstring_lossy, HostLogFn, Oppw4LogEntry, Oppw4PluginApi};
+use plugin_api::{cstring_lossy, HostLogFn, Oppw4LogEntry, Oppw4PluginApi};
 
 const PLUGIN_ID: &str = "skin_patcher";
 

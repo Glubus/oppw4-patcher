@@ -6,7 +6,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use oppw4_plugin_api::{Oppw4FileProvider, Oppw4PluginApi};
+use plugin_api::{Oppw4FileProvider, Oppw4PluginApi};
 
 use crate::{
     log,

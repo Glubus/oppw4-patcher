@@ -5,7 +5,7 @@ use std::{
     path::PathBuf,
 };
 
-use oppw4_plugin_api::{cstring_lossy, Oppw4PluginApi};
+use plugin_api::{cstring_lossy, Oppw4PluginApi};
 
 use crate::{ffi, log, mods::ModRepository, patching, LEGACY_NAME_HASH_CATALOG_ZIP};
 
@@ -98,10 +98,10 @@ fn log_paths(paths: &RuntimePaths) {
     log::write_line(format!("rdb root: {}", paths.rdb_root.display()));
 }
 
-fn load_name_catalog(paths: &RuntimePaths) -> Vec<oppw4_rdb::NameHashEntry> {
+fn load_name_catalog(paths: &RuntimePaths) -> Vec<rdb::NameHashEntry> {
     let override_path = paths.config_root.join("name_hash_catalog.txt");
     if let Ok(bytes) = std::fs::read(&override_path) {
-        let catalog = oppw4_rdb::parse_name_hash_catalog(&bytes);
+        let catalog = rdb::parse_name_hash_catalog(&bytes);
         log::write_line(format!(
             "name catalog override: entries={} path={}",
             catalog.len(),
@@ -119,7 +119,7 @@ fn load_name_catalog(paths: &RuntimePaths) -> Vec<oppw4_rdb::NameHashEntry> {
     catalog
 }
 
-fn load_embedded_name_catalog() -> Vec<oppw4_rdb::NameHashEntry> {
+fn load_embedded_name_catalog() -> Vec<rdb::NameHashEntry> {
     let cursor = Cursor::new(LEGACY_NAME_HASH_CATALOG_ZIP);
     let Ok(mut archive) = zip::ZipArchive::new(cursor) else {
         log::write_line("embedded name catalog zip parse failed");
@@ -134,12 +134,12 @@ fn load_embedded_name_catalog() -> Vec<oppw4_rdb::NameHashEntry> {
         log::write_line(format!("embedded name catalog read failed: {error}"));
         return Vec::new();
     }
-    oppw4_rdb::parse_name_hash_catalog(&bytes)
+    rdb::parse_name_hash_catalog(&bytes)
 }
 
 fn scan_known_archives(
     paths: &RuntimePaths,
-    catalog: &[oppw4_rdb::NameHashEntry],
+    catalog: &[rdb::NameHashEntry],
     legacy_mod_paths: Vec<PathBuf>,
 ) -> Vec<patching::VirtualReplacement> {
     let mut replacements = Vec::new();
@@ -199,7 +199,7 @@ fn scan_archive(
     paths: &RuntimePaths,
     mods: &ModRepository,
     archive: &str,
-    catalog: &[oppw4_rdb::NameHashEntry],
+    catalog: &[rdb::NameHashEntry],
 ) -> Vec<patching::VirtualReplacement> {
     let rdb_path = paths.rdb_root.join(format!("{archive}.rdb"));
     let assets = mods.archive_assets(archive);
@@ -218,12 +218,12 @@ fn scan_archive(
         ));
         return Vec::new();
     };
-    let Ok(index) = oppw4_rdb::parse_rdb(&bytes) else {
+    let Ok(index) = rdb::parse_rdb(&bytes) else {
         log::write_line(format!("{archive}: rdb parse failed"));
         return Vec::new();
     };
 
-    let scan = oppw4_rdb::scan_archive_names_with_catalog(archive, &index, &names, catalog);
+    let scan = rdb::scan_archive_names_with_catalog(archive, &index, &names, catalog);
     let counts = scan.counts();
     log::write_line(format!(
         "{archive}: files={} matched={} hash_missing={} unresolved={}",

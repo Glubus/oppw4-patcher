@@ -1,0 +1,85 @@
+use std::{ffi::c_void, sync::Arc};
+
+use mlua::Lua;
+use plugin_api::{cstring_lossy, Oppw4LuaModule, Oppw4PluginApi};
+
+use crate::log;
+
+use super::{
+    character_ext::fx_director_module,
+    fx_module::fx_module,
+    state::SharedFxState,
+};
+
+pub(crate) fn register_lua_modules(api: &Oppw4PluginApi, state: SharedFxState) {
+    register_module(
+        api,
+        "fx_director",
+        "fx_director",
+        register_fx_director_module,
+        Arc::clone(&state),
+    );
+    register_module(api, "fx_director", "fx", register_fx_module, state);
+}
+
+fn register_module(
+    api: &Oppw4PluginApi,
+    plugin_id: &str,
+    name: &str,
+    register: plugin_api::Oppw4LuaRegisterFn,
+    state: SharedFxState,
+) {
+    let plugin_id = cstring_lossy(plugin_id);
+    let module_name = cstring_lossy(name);
+    let context = Box::into_raw(Box::new(state)).cast::<c_void>();
+    let module = Oppw4LuaModule {
+        plugin_id: plugin_id.as_ptr(),
+        module_name: module_name.as_ptr(),
+        module_context: context,
+        register: Some(register),
+    };
+    let result = api.register_lua_module(&module);
+    if result != 0 {
+        log::write_line(format!(
+            "fx_director lua module register failed module={name} result={result}"
+        ));
+    }
+}
+
+unsafe extern "system" fn register_fx_director_module(
+    context: *mut c_void,
+    lua: *mut c_void,
+) -> i32 {
+    register_named_module(context, lua, ModuleKind::Director)
+}
+
+unsafe extern "system" fn register_fx_module(context: *mut c_void, lua: *mut c_void) -> i32 {
+    register_named_module(context, lua, ModuleKind::Fx)
+}
+
+enum ModuleKind {
+    Director,
+    Fx,
+}
+
+unsafe fn register_named_module(context: *mut c_void, lua: *mut c_void, kind: ModuleKind) -> i32 {
+    let Some(state) = context.cast::<SharedFxState>().as_ref() else {
+        return -1;
+    };
+    let Some(lua) = lua.cast::<Lua>().as_ref() else {
+        return -2;
+    };
+    let (name, module) = match kind {
+        ModuleKind::Director => ("fx_director", fx_director_module(lua, Arc::clone(state))),
+        ModuleKind::Fx => ("fx", fx_module(lua, Arc::clone(state))),
+    };
+    match module.and_then(|table| lua_api::register_module(lua, name, table)) {
+        Ok(()) => 0,
+        Err(error) => {
+            log::write_line(format!(
+                "fx_director lua module failed name={name}: {error}"
+            ));
+            -3
+        }
+    }
+}

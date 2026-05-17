@@ -9,6 +9,8 @@ crate-type = ["cdylib"]
 name = "skin_patcher"
 
 [dependencies]
-oppw4-plugin-api.workspace = true
-oppw4-rdb.workspace = true
+mlua.workspace = true
+lua-api.workspace = true
+plugin-api.workspace = true
+rdb.workspace = true
 zip.workspace = true

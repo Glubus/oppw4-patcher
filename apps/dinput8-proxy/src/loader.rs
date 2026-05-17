@@ -1,6 +1,6 @@
 use std::{ffi::c_void, path::PathBuf, sync::Once};
 
-use crate::{log, win};
+use crate::{active_character, config, log, win};
 
 static INIT: Once = Once::new();
 
@@ -18,12 +18,28 @@ fn initialize_loader(module: *mut c_void) {
 
 fn initialize_loader_thread(base_dir: PathBuf) {
     log::write_line("loader init started");
-    oppw4_hooks::set_logger(write_hook_log);
-    oppw4_hooks::install_main_module_hooks();
-    plugins_supports::set_logger(write_plugin_log);
+    let config = config::load_or_create(&base_dir);
+    log::write_line(format!(
+        "host config debug.enabled={}",
+        config.debug.enabled
+    ));
+    log::write_line(format!(
+        "host config active_character.enabled={} active_character.debug={}",
+        config.active_character.enabled, config.active_character.debug
+    ));
+    hooks::set_logger(write_hook_log);
+    hooks::set_diagnostics_enabled(config.debug.enabled);
+    hooks::install_main_module_hooks();
+    if config.active_character.enabled {
+        active_character::start_service(config.active_character.debug);
+    } else {
+        log::write_line("active character service disabled by config");
+    }
+    plugin_host::set_logger(write_plugin_log);
+    plugin_host::set_debug_enabled(config.debug.enabled);
     let paths = LoaderPaths::from_base_dir(base_dir);
     log_loader_paths(&paths);
-    plugins_supports::initialize(&paths.game_root, &paths.plugin_root, log::session_stamp());
+    plugin_host::initialize(&paths.game_root, &paths.plugin_root, log::session_stamp());
 }
 
 fn write_hook_log(message: String) {

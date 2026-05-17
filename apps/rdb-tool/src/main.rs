@@ -1,6 +1,6 @@
 use std::{env, fs, path::Path, process};
 
-use oppw4_rdb::{
+use rdb::{
     parse_block_tail, parse_name_hash_catalog, parse_payload_tail, parse_prefixed_hex_hash,
     parse_rdb, scan_archive_names_with_catalog, scan_virtualized_names_with_catalog, ArchiveScan,
     NameHashEntry, RdbAddressSuffix, RdbBlock, RdbIndex,
@@ -51,7 +51,7 @@ fn parse_args_or_exit() -> CliArgs {
 
 fn parse_args(mut args: impl Iterator<Item = String>) -> Result<CliArgs, String> {
     let Some(rdb_path) = args.next() else {
-        return Err("usage: oppw4-rdb-tools <path-to-rdb> [hash]".to_string());
+        return Err("usage: rdb-tools <path-to-rdb> [hash]".to_string());
     };
 
     if rdb_path == "--export-catalog" {
@@ -86,7 +86,7 @@ fn parse_export_catalog_command(mut args: impl Iterator<Item = String>) -> Resul
 }
 
 fn export_catalog_usage() -> String {
-    "usage: oppw4-rdb-tools --export-catalog <source-dll> <out-file>".to_string()
+    "usage: rdb-tools --export-catalog <source-dll> <out-file>".to_string()
 }
 
 fn parse_scan_command(
@@ -140,12 +140,11 @@ fn parse_scan_root_command(mut args: impl Iterator<Item = String>) -> Result<Com
 }
 
 fn scan_usage() -> String {
-    "usage: oppw4-rdb-tools <path-to-rdb> --scan <folder> [--catalog <dll>]".to_string()
+    "usage: rdb-tools <path-to-rdb> --scan <folder> [--catalog <dll>]".to_string()
 }
 
 fn scan_root_usage() -> String {
-    "usage: oppw4-rdb-tools --scan-root <patcher-root> --rdb-root <rdb-root> --catalog <dll>"
-        .to_string()
+    "usage: rdb-tools --scan-root <patcher-root> --rdb-root <rdb-root> --catalog <dll>".to_string()
 }
 
 fn load_rdb_or_exit(path: &str) -> RdbIndex {
@@ -444,11 +443,7 @@ fn read_directory_names_or_exit(folder: &str) -> Vec<String> {
     names
 }
 
-fn print_scan_summary(
-    folder: &str,
-    catalog_entries: usize,
-    scanned: &[oppw4_rdb::VirtualizedFile<'_>],
-) {
+fn print_scan_summary(folder: &str, catalog_entries: usize, scanned: &[rdb::VirtualizedFile<'_>]) {
     let matched = scanned.iter().filter(|file| file.block.is_some()).count();
     let hash_missing = scanned
         .iter()
@@ -464,7 +459,7 @@ fn print_scan_summary(
     println!("non_hash_names: {named}");
 }
 
-fn print_scan_entries(scanned: &[oppw4_rdb::VirtualizedFile<'_>]) {
+fn print_scan_entries(scanned: &[rdb::VirtualizedFile<'_>]) {
     for file in scanned {
         match (file.hash, file.block) {
             (Some(hash), Some(block)) => {

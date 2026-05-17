@@ -1,4 +1,0 @@
-[plugin]
-id = "weapon_aura"
-version = "0.1.0"
-entry = "weapon_aura.dll"

@@ -1,0 +1,4 @@
+[plugin]
+id = "fx_director"
+version = "0.1.0"
+entry = "fx_director.dll"

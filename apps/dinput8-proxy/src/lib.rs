@@ -1,3 +1,5 @@
+mod active_character;
+mod config;
 mod loader;
 mod log;
 mod time;

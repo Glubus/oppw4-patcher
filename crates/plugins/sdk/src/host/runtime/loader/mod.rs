@@ -1,0 +1,36 @@
+mod discovery;
+mod paths;
+mod plugin;
+mod state;
+
+use std::{
+    fs,
+    path::Path,
+    sync::{Mutex, OnceLock},
+};
+
+use crate::host::log;
+
+use super::{logs, lua};
+use plugin::LoadedPlugin;
+
+static LOADED: OnceLock<Mutex<Vec<LoadedPlugin>>> = OnceLock::new();
+
+pub fn initialize(game_root: &Path, plugin_root: &Path, session_stamp: Option<String>) {
+    prepare_runtime(game_root, plugin_root, session_stamp);
+    let loaded = discovery::load_plugins(game_root, plugin_root);
+    log::write_line(format!("plugin host: loaded={loaded}"));
+}
+
+fn prepare_runtime(game_root: &Path, plugin_root: &Path, session_stamp: Option<String>) {
+    let _ = fs::create_dir_all(plugin_root);
+    logs::initialize(session_stamp);
+    let _ = LOADED.set(Mutex::new(Vec::new()));
+    lua::initialize(&paths::mods_root(game_root));
+}
+
+fn remember_loaded_plugin(plugin: LoadedPlugin) {
+    if let Some(plugins) = LOADED.get() {
+        plugins.lock().expect("plugin list lock").push(plugin);
+    }
+}

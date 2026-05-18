@@ -184,7 +184,6 @@ name = "hooks"
 version = "0.1.0"
 dependencies = [
  "asm",
- "plugin-api",
 ]
 
 [[package]]
@@ -354,7 +353,7 @@ version = "0.1.0"
 dependencies = [
  "asm",
  "hooks",
- "plugin-host",
+ "plugin-sdk",
  "struct-api",
  "toml",
  "tracing",
@@ -370,7 +369,7 @@ dependencies = [
  "asm",
  "lua-api",
  "mlua",
- "plugin-api",
+ "plugin-sdk",
  "struct-api",
  "toml",
  "zip",
@@ -382,7 +381,7 @@ version = "0.1.0"
 dependencies = [
  "lua-api",
  "mlua",
- "plugin-api",
+ "plugin-sdk",
  "rdb",
  "zip",
 ]
@@ -423,17 +422,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
 
 [[package]]
-name = "plugin-api"
-version = "0.1.0"
-
-[[package]]
-name = "plugin-host"
+name = "plugin-sdk"
 version = "0.1.0"
 dependencies = [
  "hooks",
  "lua-api",
  "mlua",
- "plugin-api",
  "toml",
  "tracing",
 ]

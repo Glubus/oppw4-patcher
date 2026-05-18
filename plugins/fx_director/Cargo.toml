@@ -1,20 +1,18 @@
 [package]
-name = "oppw4-dinput8-proxy"
+name = "oppw4-fx-director-plugin"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [lib]
 crate-type = ["cdylib"]
-name = "dinput8"
+name = "fx_director"
 
 [dependencies]
 asm.workspace = true
-hooks.workspace = true
-plugin-sdk.workspace = true
 struct-api.workspace = true
-tracing.workspace = true
-tracing-appender.workspace = true
-tracing-subscriber.workspace = true
+plugin-sdk.workspace = true
+lua-api.workspace = true
 toml.workspace = true
 zip.workspace = true
+mlua.workspace = true

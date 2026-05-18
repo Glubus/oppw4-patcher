@@ -7,8 +7,8 @@ This release turns the old patcher into a plugin-based OPPW4 modloader foundatio
 ### Added
 
 - Root `plugins/` layout with per-plugin `plugin.toml`, DLL entry, and `logs/`.
-- `plugin-host` loader used by `dinput8.dll`.
-- Shared `plugin-api` ABI for official plugins.
+- `plugin-sdk` host loader used by `dinput8.dll`.
+- Shared `plugin-sdk::abi` ABI for official plugins.
 - Lua mod support from `mods/`, including directory mods and zip mods.
 - Directory Lua hot reload for live mod iteration.
 - `require(...)`-based Lua module imports.
@@ -31,8 +31,7 @@ This release turns the old patcher into a plugin-based OPPW4 modloader foundatio
   - `asm`
   - `hooks`
   - `lua-api`
-  - `plugin-api`
-  - `plugin-host`
+  - `plugin-sdk`
   - `rdb`
   - `struct-api`
 - Runtime patching logic moved out of generic hooks and into plugin-owned code.

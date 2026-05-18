@@ -1,10 +1,19 @@
 use std::sync::atomic::{AtomicU16, AtomicU64, AtomicUsize, Ordering};
 
-use plugin_api::Oppw4ActiveCharacter;
-
 use crate::{memory, SignalId};
 
 pub const ACTIVE_CHARACTER_CHANGED: SignalId = SignalId::new("active_character_changed");
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ActiveCharacter {
+    pub runtime_id: u16,
+    pub alt_id: u16,
+    pub flags: u32,
+    pub local_player: usize,
+    pub fx_owner: usize,
+    pub source: usize,
+    pub sequence: u64,
+}
 
 static RUNTIME_ID: AtomicU16 = AtomicU16::new(u16::MAX);
 static ALT_ID: AtomicU16 = AtomicU16::new(u16::MAX);
@@ -27,8 +36,8 @@ pub fn publish_local_player(local_player: usize) {
     SEQUENCE.fetch_add(1, Ordering::AcqRel);
 }
 
-pub fn snapshot() -> Oppw4ActiveCharacter {
-    Oppw4ActiveCharacter {
+pub fn snapshot() -> ActiveCharacter {
+    ActiveCharacter {
         runtime_id: RUNTIME_ID.load(Ordering::Acquire),
         alt_id: ALT_ID.load(Ordering::Relaxed),
         flags: 0,

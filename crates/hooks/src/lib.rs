@@ -17,4 +17,6 @@ pub use memory::{module_base, read_memory, scan_memory, write_memory};
 pub use signals::{Signal, SignalBus, SignalHook, SignalId};
 pub use signature::{Signature, SignatureScanner};
 pub use status::{game_status, mark_file_open};
-pub use winapi_file::{install_main_module_hooks, register_file_provider};
+pub use winapi_file::{
+    install_main_module_hooks, register_file_provider, FileProviderRegistration,
+};

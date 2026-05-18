@@ -11,11 +11,6 @@ use std::{
 mod handles;
 mod types;
 
-use plugin_api::{
-    Oppw4FileProvider, Oppw4ProviderCloseFn, Oppw4ProviderFileTimeFn, Oppw4ProviderOpenPathFn,
-    Oppw4ProviderPatchReadFn, Oppw4ProviderReadFn, Oppw4ProviderSeekFn, Oppw4ProviderSizeFn,
-};
-
 use crate::{log, win};
 use handles::{
     fake_to_handle, returned_virtual_handle, virtual_handle_for_os_handle, VirtualHandle,
@@ -31,16 +26,69 @@ static OPEN_VIRTUAL_LOGS: AtomicUsize = AtomicUsize::new(0);
 static VIRTUAL_IO_LOGS: AtomicUsize = AtomicUsize::new(0);
 const DEBUG_FILE_IO_LOGS: bool = false;
 
+pub type ProviderOpenPathFn = unsafe extern "system" fn(
+    provider_context: *mut c_void,
+    path_utf8: *const c_char,
+    out_handle: *mut u64,
+) -> i32;
+pub type ProviderReadFn = unsafe extern "system" fn(
+    provider_context: *mut c_void,
+    handle: u64,
+    buffer: *mut u8,
+    bytes_to_read: u32,
+    requested_offset: i64,
+    out_bytes_read: *mut u32,
+) -> i32;
+pub type ProviderCloseFn =
+    unsafe extern "system" fn(provider_context: *mut c_void, handle: u64) -> i32;
+pub type ProviderSizeFn = unsafe extern "system" fn(
+    provider_context: *mut c_void,
+    handle: u64,
+    out_size: *mut u64,
+) -> i32;
+pub type ProviderFileTimeFn = unsafe extern "system" fn(
+    provider_context: *mut c_void,
+    handle: u64,
+    out_filetime: *mut u64,
+) -> i32;
+pub type ProviderSeekFn = unsafe extern "system" fn(
+    provider_context: *mut c_void,
+    handle: u64,
+    distance: i64,
+    move_method: u32,
+    out_position: *mut u64,
+) -> i32;
+pub type ProviderPatchReadFn = unsafe extern "system" fn(
+    provider_context: *mut c_void,
+    path_utf8: *const c_char,
+    os_handle: usize,
+    read_offset: u64,
+    buffer: *mut u8,
+    len: usize,
+) -> i32;
+
+pub struct FileProviderRegistration<'a> {
+    pub plugin_id: Option<&'a CStr>,
+    pub provider_context: *mut c_void,
+    pub open_path: ProviderOpenPathFn,
+    pub read: ProviderReadFn,
+    pub close: ProviderCloseFn,
+    pub size: ProviderSizeFn,
+    pub file_time: Option<ProviderFileTimeFn>,
+    pub seek: ProviderSeekFn,
+    pub patch_read: Option<ProviderPatchReadFn>,
+}
+
 #[derive(Clone, Copy)]
 struct FileProvider {
     provider_context: usize,
-    open_path: Oppw4ProviderOpenPathFn,
-    read: Oppw4ProviderReadFn,
-    close: Oppw4ProviderCloseFn,
-    size: Oppw4ProviderSizeFn,
-    file_time: Option<Oppw4ProviderFileTimeFn>,
-    seek: Oppw4ProviderSeekFn,
-    patch_read: Option<Oppw4ProviderPatchReadFn>,
+    open_path: ProviderOpenPathFn,
+    read: ProviderReadFn,
+    close: ProviderCloseFn,
+    size: ProviderSizeFn,
+    file_time: Option<ProviderFileTimeFn>,
+    seek: ProviderSeekFn,
+    patch_read: Option<ProviderPatchReadFn>,
 }
 
 #[derive(Default)]
@@ -65,32 +113,20 @@ impl OpenFileTracker {
     }
 }
 
-pub unsafe fn register_file_provider(provider: *const Oppw4FileProvider) -> i32 {
-    let Some(provider) = provider.as_ref() else {
-        return -1;
-    };
-    let (Some(open_path), Some(read), Some(close), Some(size), Some(seek)) = (
-        provider.open_path,
-        provider.read,
-        provider.close,
-        provider.size,
-        provider.seek,
-    ) else {
-        return -2;
-    };
+pub fn register_file_provider(provider: FileProviderRegistration<'_>) -> i32 {
     let plugin_id = fixed_plugin_id(provider.plugin_id);
     let registry = FILE_PROVIDER.get_or_init(|| Mutex::new(None));
     let Ok(mut guard) = registry.lock() else {
-        return -3;
+        return -1;
     };
     *guard = Some(FileProvider {
         provider_context: provider.provider_context as usize,
-        open_path,
-        read,
-        close,
-        size,
+        open_path: provider.open_path,
+        read: provider.read,
+        close: provider.close,
+        size: provider.size,
         file_time: provider.file_time,
-        seek,
+        seek: provider.seek,
         patch_read: provider.patch_read,
     });
     log::write_line(format!(
@@ -102,12 +138,12 @@ pub unsafe fn register_file_provider(provider: *const Oppw4FileProvider) -> i32 
     0
 }
 
-unsafe fn fixed_plugin_id(plugin_id: *const c_char) -> [u8; 64] {
+fn fixed_plugin_id(plugin_id: Option<&CStr>) -> [u8; 64] {
     let mut out = [0u8; 64];
-    if plugin_id.is_null() {
+    let Some(plugin_id) = plugin_id else {
         return out;
-    }
-    let bytes = CStr::from_ptr(plugin_id).to_bytes();
+    };
+    let bytes = plugin_id.to_bytes();
     let len = bytes.len().min(out.len().saturating_sub(1));
     out[..len].copy_from_slice(&bytes[..len]);
     out
@@ -199,27 +235,47 @@ unsafe fn patch_import_descriptor(
 
 unsafe fn patch_import_by_name(name: &str, iat: *mut usize, originals: &mut OriginalFunctions) {
     match name {
-        "CreateFileW" => patch_slot(iat, hooked_create_file_w as usize, |original| {
-            originals.create_file_w = Some(std::mem::transmute(original));
-        }),
-        "ReadFile" => patch_slot(iat, hooked_read_file as usize, |original| {
+        "CreateFileW" => patch_slot(
+            iat,
+            hooked_create_file_w as *const () as usize,
+            |original| {
+                originals.create_file_w = Some(std::mem::transmute(original));
+            },
+        ),
+        "ReadFile" => patch_slot(iat, hooked_read_file as *const () as usize, |original| {
             originals.read_file = Some(std::mem::transmute(original));
         }),
-        "CloseHandle" => patch_slot(iat, hooked_close_handle as usize, |original| {
+        "CloseHandle" => patch_slot(iat, hooked_close_handle as *const () as usize, |original| {
             originals.close_handle = Some(std::mem::transmute(original));
         }),
-        "GetFileSizeEx" => patch_slot(iat, hooked_get_file_size_ex as usize, |original| {
-            originals.get_file_size_ex = Some(std::mem::transmute(original));
-        }),
-        "GetFileTime" => patch_slot(iat, hooked_get_file_time as usize, |original| {
-            originals.get_file_time = Some(std::mem::transmute(original));
-        }),
-        "GetFileType" => patch_slot(iat, hooked_get_file_type as usize, |original| {
-            originals.get_file_type = Some(std::mem::transmute(original));
-        }),
-        "SetFilePointerEx" => patch_slot(iat, hooked_set_file_pointer_ex as usize, |original| {
-            originals.set_file_pointer_ex = Some(std::mem::transmute(original));
-        }),
+        "GetFileSizeEx" => patch_slot(
+            iat,
+            hooked_get_file_size_ex as *const () as usize,
+            |original| {
+                originals.get_file_size_ex = Some(std::mem::transmute(original));
+            },
+        ),
+        "GetFileTime" => patch_slot(
+            iat,
+            hooked_get_file_time as *const () as usize,
+            |original| {
+                originals.get_file_time = Some(std::mem::transmute(original));
+            },
+        ),
+        "GetFileType" => patch_slot(
+            iat,
+            hooked_get_file_type as *const () as usize,
+            |original| {
+                originals.get_file_type = Some(std::mem::transmute(original));
+            },
+        ),
+        "SetFilePointerEx" => patch_slot(
+            iat,
+            hooked_set_file_pointer_ex as *const () as usize,
+            |original| {
+                originals.set_file_pointer_ex = Some(std::mem::transmute(original));
+            },
+        ),
         _ => {}
     }
 }

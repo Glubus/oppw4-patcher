@@ -4,7 +4,7 @@ use std::ffi::CStr;
 
 use crate::host::runtime::logs;
 
-pub(super) use r#unsafe::host_log;
+pub(crate) use r#unsafe::host_log;
 
 fn write_log(plugin_id: &CStr, message: &CStr) {
     logs::write(plugin_id, message);

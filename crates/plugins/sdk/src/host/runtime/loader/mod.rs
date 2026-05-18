@@ -18,8 +18,11 @@ static LOADED: OnceLock<Mutex<Vec<LoadedPlugin>>> = OnceLock::new();
 
 pub fn initialize(game_root: &Path, plugin_root: &Path, session_stamp: Option<String>) {
     prepare_runtime(game_root, plugin_root, session_stamp);
-    let loaded = discovery::load_plugins(game_root, plugin_root);
-    log::write_line(format!("plugin host: loaded={loaded}"));
+    let report = discovery::load_plugins(game_root, plugin_root);
+    log::write_line(format!(
+        "plugin host: scanned={} manifests={} loaded={}",
+        report.scanned, report.manifests, report.loaded
+    ));
 }
 
 fn prepare_runtime(game_root: &Path, plugin_root: &Path, session_stamp: Option<String>) {

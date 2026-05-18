@@ -1,7 +1,13 @@
 pub mod abi;
 pub mod host;
+pub mod manifest;
 
 pub use abi::*;
+pub use manifest::{
+    plugin_logs_root, plugin_mods_root, plugin_toml_path, sanitize_plugin_id, PluginDescriptor,
+    PluginManifestError, DEFAULT_PLUGIN_VERSION, PLUGIN_LOGS_DIR, PLUGIN_MANIFEST_FILE,
+    PLUGIN_MODS_DIR,
+};
 
 mod context;
 mod entry;

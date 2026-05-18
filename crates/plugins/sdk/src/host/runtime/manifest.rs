@@ -4,6 +4,9 @@ use std::{
 };
 
 use crate::host::log;
+use crate::manifest::{
+    plugin_logs_root, plugin_mods_root, plugin_toml_path, PluginDescriptor, PluginManifestError,
+};
 
 #[derive(Debug, PartialEq)]
 pub(crate) struct PluginManifest {
@@ -17,7 +20,7 @@ pub(crate) struct PluginManifest {
 
 impl PluginManifest {
     pub(crate) fn read_from_dir(plugin_dir: &Path) -> Option<Self> {
-        let manifest_path = plugin_dir.join("plugin.toml");
+        let manifest_path = plugin_toml_path(plugin_dir);
         if !manifest_path.is_file() {
             if let Err(error) = create_default_manifest(plugin_dir, &manifest_path) {
                 log::write_line(format!(
@@ -52,50 +55,28 @@ impl PluginManifest {
     }
 
     fn parse(plugin_dir: &Path, text: &str) -> Result<Self, String> {
-        let value = text
-            .parse::<toml::Value>()
-            .map_err(|error| error.to_string())?;
-        let plugin = value
-            .get("plugin")
-            .and_then(toml::Value::as_table)
-            .ok_or_else(|| "missing [plugin] table".to_string())?;
-        let id = plugin
-            .get("id")
-            .and_then(toml::Value::as_str)
-            .map(sanitize_plugin_id)
-            .filter(|id| id != "unknown_plugin")
-            .ok_or_else(|| "missing plugin.id".to_string())?;
-        let version = plugin
-            .get("version")
-            .and_then(toml::Value::as_str)
-            .ok_or_else(|| "missing plugin.version".to_string())?
-            .to_string();
-        let entry = plugin
-            .get("entry")
-            .and_then(toml::Value::as_str)
-            .ok_or_else(|| "missing plugin.entry".to_string())?;
+        let descriptor = PluginDescriptor::parse_toml(text).map_err(format_manifest_error)?;
 
         Ok(Self {
-            id,
-            version,
+            id: descriptor.id,
+            version: descriptor.version,
             root: plugin_dir.to_path_buf(),
-            mods_root: plugin_dir.join("mods"),
-            entry_path: entry_file_path(plugin_dir, entry)?,
-            log_root: plugin_dir.join("logs"),
+            mods_root: plugin_mods_root(plugin_dir),
+            entry_path: plugin_dir.join(descriptor.entry),
+            log_root: plugin_logs_root(plugin_dir),
         })
     }
 }
 
 fn create_default_manifest(plugin_dir: &Path, manifest_path: &Path) -> Result<(), String> {
     let entry = infer_entry_file(plugin_dir)?;
-    let id = plugin_dir
+    let folder_name = plugin_dir
         .file_name()
         .and_then(|name| name.to_str())
-        .map(sanitize_plugin_id)
-        .filter(|id| id != "unknown_plugin")
         .ok_or_else(|| "cannot infer plugin id from folder name".to_string())?;
-    let text = format!("[plugin]\nid = \"{id}\"\nversion = \"0.2.0\"\nentry = \"{entry}\"\n");
-    fs::write(manifest_path, text).map_err(|error| error.to_string())
+    let descriptor = PluginDescriptor::default_for_folder(folder_name, &entry)
+        .map_err(format_manifest_error)?;
+    fs::write(manifest_path, descriptor.to_toml()).map_err(|error| error.to_string())
 }
 
 fn infer_entry_file(plugin_dir: &Path) -> Result<String, String> {
@@ -139,35 +120,17 @@ fn infer_entry_file(plugin_dir: &Path) -> Result<String, String> {
     }
 }
 
-pub(crate) fn sanitize_plugin_id(raw: &str) -> String {
-    let sanitized = raw
-        .chars()
-        .map(|ch| {
-            if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
-                ch
-            } else {
-                '_'
-            }
-        })
-        .collect::<String>()
-        .trim_matches('_')
-        .to_string();
-    if sanitized.is_empty() {
-        "unknown_plugin".to_string()
-    } else {
-        sanitized
+fn format_manifest_error(error: PluginManifestError) -> String {
+    match error {
+        PluginManifestError::InvalidToml => "invalid TOML".to_string(),
+        PluginManifestError::MissingPluginTable => "missing [plugin] table".to_string(),
+        PluginManifestError::MissingId => "missing plugin.id".to_string(),
+        PluginManifestError::MissingVersion => "missing plugin.version".to_string(),
+        PluginManifestError::MissingEntry => "missing plugin.entry".to_string(),
+        PluginManifestError::InvalidEntry(entry) => {
+            format!("entry must be a file name only: {entry}")
+        }
     }
-}
-
-fn entry_file_path(root: &Path, child: &str) -> Result<PathBuf, String> {
-    let path = Path::new(child);
-    if path.is_absolute()
-        || path.components().count() != 1
-        || path.file_name().and_then(|value| value.to_str()) != Some(child)
-    {
-        return Err(format!("entry must be a file name only: {child}"));
-    }
-    Ok(root.join(path))
 }
 
 #[cfg(test)]

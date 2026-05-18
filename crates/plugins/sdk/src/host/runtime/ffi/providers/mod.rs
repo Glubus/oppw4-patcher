@@ -7,7 +7,7 @@ use crate::abi::{
 
 mod r#unsafe;
 
-pub(super) use r#unsafe::host_register_file_provider;
+pub(crate) use r#unsafe::host_register_file_provider;
 
 struct RequiredProviderFns {
     open_path: Oppw4ProviderOpenPathFn,

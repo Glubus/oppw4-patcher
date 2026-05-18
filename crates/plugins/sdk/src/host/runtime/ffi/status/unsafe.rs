@@ -2,7 +2,7 @@ use std::ffi::c_void;
 
 use crate::abi::{Oppw4ActiveCharacter, Oppw4GameStatus};
 
-pub(super) unsafe extern "system" fn host_game_status(
+pub(crate) unsafe extern "system" fn host_game_status(
     _host_context: *mut c_void,
     out_status: *mut Oppw4GameStatus,
 ) -> i32 {
@@ -13,7 +13,7 @@ pub(super) unsafe extern "system" fn host_game_status(
     0
 }
 
-pub(super) unsafe extern "system" fn host_active_character(
+pub(crate) unsafe extern "system" fn host_active_character(
     _host_context: *mut c_void,
     out: *mut Oppw4ActiveCharacter,
 ) -> i32 {
@@ -24,6 +24,6 @@ pub(super) unsafe extern "system" fn host_active_character(
     0
 }
 
-pub(super) unsafe extern "system" fn host_debug_enabled(_host_context: *mut c_void) -> i32 {
+pub(crate) unsafe extern "system" fn host_debug_enabled(_host_context: *mut c_void) -> i32 {
     super::debug_enabled()
 }

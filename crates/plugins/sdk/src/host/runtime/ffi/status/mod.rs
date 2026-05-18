@@ -4,7 +4,7 @@ use crate::host::runtime::debug;
 
 mod r#unsafe;
 
-pub(super) use r#unsafe::{host_active_character, host_debug_enabled, host_game_status};
+pub(crate) use r#unsafe::{host_active_character, host_debug_enabled, host_game_status};
 
 fn write_game_status(out_status: &mut Oppw4GameStatus) {
     *out_status = game_status_to_abi(hooks::game_status());

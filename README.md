@@ -5,9 +5,9 @@ loader and its RDB tooling.
 
 The original community DLL works by pretending to be DirectInput, loading the
 real system `dinput8.dll`, then virtualizing selected Windows file reads made by
-the game. This project keeps that proven idea, but rewrites the implementation
-around smaller Rust modules, explicit tests, structured logging, and a cleaner
-runtime layout.
+the game. This project keeps that proven idea, but now treats `dinput8.dll` as a
+small modloader host: it owns the shared hooks, logs, Lua runtime, and plugin
+ABI, while game-specific features live in official or third-party plugins.
 
 ## Why This Exists
 
@@ -40,14 +40,14 @@ This rewrite aims to make the loader boring in the best way:
 
 At runtime, OPPW4 loads `dinput8.dll` from the game directory. This proxy DLL:
 
-1. Initializes tracing logs under `OPPW4/mods/_oppw4/logs/`.
-2. Loads the embedded compressed `name_hash_catalog.txt`.
-3. Scans game-side mods from `OPPW4/mods/`.
-4. Matches mod files against known RDB archives such as `CharacterEditor`,
-   `MaterialEditor`, `ScreenLayout`, and `RRPreview`.
-5. Builds a virtual replacement table.
-6. Installs file API hooks so selected RDB reads can be served from mod files.
-7. Forwards DirectInput calls to the real system `dinput8.dll`.
+1. Initializes host logs under `OPPW4/mods/_oppw4/logs/`.
+2. Installs shared game hooks such as file API hooks and active-character state.
+3. Creates the host config if `OPPW4/mods/_oppw4/config.toml` is missing.
+4. Scans `OPPW4/plugins/<plugin_id>/plugin.toml`.
+5. Loads each plugin DLL through the shared `plugin-sdk` ABI.
+6. Exposes root `OPPW4/mods/` Lua mods and legacy zip/folder mods to plugins.
+7. Routes plugin logs to `OPPW4/plugins/<plugin_id>/logs/`.
+8. Forwards DirectInput calls to the real system `dinput8.dll`.
 
 The important design choice is that mods are runtime data, not source files.
 This repository contains code, docs, and embedded resources. The game install
@@ -60,6 +60,16 @@ Install the built DLL next to the OPPW4 executable:
 ```text
 OPPW4/
   dinput8.dll
+  plugins/
+    skin_patcher/
+      plugin.toml
+      skin_patcher.dll
+      logs/
+    fx_director/
+      plugin.toml
+      fx_director.dll
+      config.toml
+      logs/
   File/
     CMN/
       AssetRelease/
@@ -83,6 +93,7 @@ OPPW4/
         0x3b359352.g1m
     law-pack.zip
     _oppw4/
+      config.toml
       disabled_hashes.txt
       name_hash_catalog.txt
       logs/
@@ -91,6 +102,46 @@ OPPW4/
 
 `mods/_oppw4/` is reserved for loader configuration and logs. It is ignored when
 the loader searches for mod zip files.
+
+## Plugin Layout
+
+Plugins live under `OPPW4/plugins/<plugin_id>/`.
+
+```text
+OPPW4/plugins/fx_director/
+  plugin.toml
+  fx_director.dll
+  config.toml
+  logs/
+```
+
+`plugin.toml` is intentionally small:
+
+```toml
+[plugin]
+id = "fx_director"
+version = "0.2.0"
+entry = "fx_director.dll"
+```
+
+The `entry` value must be a file name only, not a path. If `plugin.toml` is
+missing and the folder contains exactly one DLL, the host creates a default
+manifest automatically. If several DLLs exist, the plugin is skipped until the
+manifest is explicit.
+
+The shared plugin SDK lives in:
+
+```text
+crates/plugins/sdk/
+```
+
+Official plugins live in:
+
+```text
+plugins/
+  skin_patcher/
+  fx_director/
+```
 
 ## Mod Formats
 
@@ -166,13 +217,18 @@ Use one hash per line. Hex forms such as `0xa46e63e6` are accepted.
 
 ```text
 apps/
-  dinput8-proxy/    # DLL loaded by the game
-  rdb-tool/         # command-line probes and catalog tooling
+  dinput8-proxy/      # DLL loaded by the game
+  rdb-tool/           # command-line probes and catalog tooling
 crates/
-  oppw4-rdb/        # shared RDB, catalog, mod source, and virtual file logic
-docs/
-  ghidra/           # original DLL maps and function notes
-  reverse-notes/    # investigation notes and runtime evidence
+  asm/                # low-level x64 patch byte emission helpers
+  hooks/              # shared host hooks and process memory helpers
+  lua-api/            # Lua mod discovery/runtime helpers
+  plugins/sdk/        # plugin ABI, host loader, and plugin-facing API
+  rdb/                # RDB/catalog parsing
+  struct-api/         # editable structured game data
+plugins/
+  skin_patcher/       # official RDB/skin replacement plugin
+  fx_director/        # official runtime FX plugin
 resources/
   name_hash_catalog.txt
   name_hash_catalog.zip

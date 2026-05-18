@@ -8,7 +8,7 @@ use crate::host::runtime::mods;
 
 use super::{context::ApiContext, strings::cstring_lossy};
 
-pub(super) use r#unsafe::{host_for_each_plugin_mod, host_for_each_plugin_mod_zip};
+pub(crate) use r#unsafe::{host_for_each_plugin_mod, host_for_each_plugin_mod_zip};
 
 struct ModEntryCStrings {
     id: CString,
@@ -32,7 +32,7 @@ fn invalid_visitor_error<T>(host_context: *mut std::ffi::c_void, visitor: Option
     }
 }
 
-fn is_mod_for_plugin(mod_entry: &lua_api::ModEntry, context: &ApiContext) -> bool {
+fn is_mod_for_plugin(mod_entry: &lua_api::LuaMod, context: &ApiContext) -> bool {
     mod_entry.uses_plugin(&context.plugin_id)
 }
 
@@ -58,7 +58,7 @@ fn plugin_mod_entry(prepared: &PreparedPluginMod) -> Oppw4PluginModEntry {
     plugin_mod_entry_from_parts(&prepared.strings, prepared.is_zip)
 }
 
-fn mod_entry_cstrings(mod_entry: &lua_api::ModEntry) -> ModEntryCStrings {
+fn mod_entry_cstrings(mod_entry: &lua_api::LuaMod) -> ModEntryCStrings {
     ModEntryCStrings {
         id: cstring_lossy(&mod_entry.manifest.id),
         name: cstring_lossy(&mod_entry.manifest.name),

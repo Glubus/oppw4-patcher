@@ -4,7 +4,7 @@ use crate::abi::{HostPluginModVisitorFn, HostPluginModZipVisitorFn};
 
 use super::ApiContext;
 
-pub(super) unsafe extern "system" fn host_for_each_plugin_mod_zip(
+pub(crate) unsafe extern "system" fn host_for_each_plugin_mod_zip(
     host_context: *mut c_void,
     visitor: Option<HostPluginModZipVisitorFn>,
     user_context: *mut c_void,
@@ -22,7 +22,7 @@ pub(super) unsafe extern "system" fn host_for_each_plugin_mod_zip(
     0
 }
 
-pub(super) unsafe extern "system" fn host_for_each_plugin_mod(
+pub(crate) unsafe extern "system" fn host_for_each_plugin_mod(
     host_context: *mut c_void,
     visitor: Option<HostPluginModVisitorFn>,
     user_context: *mut c_void,

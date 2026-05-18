@@ -7,7 +7,7 @@ use std::{
     sync::{Mutex, OnceLock},
 };
 
-use super::manifest::sanitize_plugin_id;
+use crate::manifest::sanitize_plugin_id;
 use super::time;
 
 static ROUTER: OnceLock<Mutex<PluginLogRouter>> = OnceLock::new();
@@ -63,8 +63,8 @@ impl PluginLogRouter {
     fn route(&mut self, plugin_id: &CStr, message: &CStr) -> std::io::Result<()> {
         let plugin_id = sanitize_plugin_id(&plugin_id.to_string_lossy());
         let message = message.to_string_lossy();
-        self.writer_for(&plugin_id)?
-            .write(&message, &self.session_stamp)
+        let session_stamp = self.session_stamp.clone();
+        self.writer_for(&plugin_id)?.write(&message, &session_stamp)
     }
 
     fn writer_for(&mut self, plugin_id: &str) -> std::io::Result<&mut PluginLogWriter> {

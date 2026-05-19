@@ -1,4 +1,4 @@
-use std::{fs, path::PathBuf};
+use std::{fs, path::Path};
 
 use plugin_sdk::HostApi;
 
@@ -23,7 +23,7 @@ pub(crate) fn load_plugin_config(host: HostApi<'_>) -> PluginConfig {
     let Some(root) = host.paths().plugin_root() else {
         return PluginConfig::default();
     };
-    let path = PathBuf::from(root).join("config.toml");
+    let path = root.join("config.toml");
     ensure_default_config(&path);
     let Ok(text) = fs::read_to_string(path) else {
         return PluginConfig::default();
@@ -31,7 +31,7 @@ pub(crate) fn load_plugin_config(host: HostApi<'_>) -> PluginConfig {
     parse_plugin_config(&text).unwrap_or_default()
 }
 
-fn ensure_default_config(path: &PathBuf) {
+fn ensure_default_config(path: &Path) {
     if path.is_file() {
         return;
     }
@@ -87,6 +87,7 @@ fn parse_install_mode(value: &str) -> InstallMode {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     #[test]
     fn plugin_debug_config_is_separate_from_fx_definitions() {

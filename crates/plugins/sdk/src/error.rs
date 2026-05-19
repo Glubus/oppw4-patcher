@@ -5,6 +5,7 @@ pub enum PluginError {
     MissingHostFunction(&'static str),
     HostCallFailed { operation: &'static str, code: i32 },
     InvalidApiVersion { expected: u32, actual: u32 },
+    InitFailed(String),
 }
 
 impl std::fmt::Display for PluginError {
@@ -20,8 +21,15 @@ impl std::fmt::Display for PluginError {
                     "invalid plugin api version expected={expected} actual={actual}"
                 )
             }
+            Self::InitFailed(message) => write!(formatter, "plugin init failed: {message}"),
         }
     }
 }
 
 impl std::error::Error for PluginError {}
+
+impl From<String> for PluginError {
+    fn from(message: String) -> Self {
+        Self::InitFailed(message)
+    }
+}

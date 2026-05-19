@@ -246,7 +246,7 @@ fn search_hash(index: &RdbIndex, hash: u32) {
 
     println!("search_hash: 0x{hash:08x}");
     println!("matches: {}", blocks.len());
-    print_blocks(blocks.into_iter(), true);
+    print_blocks(blocks, true);
 }
 
 fn print_blocks<'a>(blocks: impl IntoIterator<Item = &'a RdbBlock>, verbose_payload: bool) {

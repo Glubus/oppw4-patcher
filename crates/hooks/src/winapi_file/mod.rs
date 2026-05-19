@@ -134,9 +134,7 @@ pub fn register_file_provider(provider: FileProviderRegistration<'_>) -> i32 {
     });
     log::write_line(format!(
         "file provider registered: {} index={id}",
-        String::from_utf8_lossy(&plugin_id)
-            .trim_end_matches('\0')
-            .to_string()
+        String::from_utf8_lossy(&plugin_id).trim_end_matches('\0')
     ));
     0
 }
@@ -242,41 +240,46 @@ unsafe fn patch_import_by_name(name: &str, iat: *mut usize, originals: &mut Orig
             iat,
             hooked_create_file_w as *const () as usize,
             |original| {
-                originals.create_file_w = Some(std::mem::transmute(original));
+                originals.create_file_w =
+                    Some(std::mem::transmute::<usize, CreateFileWFn>(original));
             },
         ),
         "ReadFile" => patch_slot(iat, hooked_read_file as *const () as usize, |original| {
-            originals.read_file = Some(std::mem::transmute(original));
+            originals.read_file = Some(std::mem::transmute::<usize, ReadFileFn>(original));
         }),
         "CloseHandle" => patch_slot(iat, hooked_close_handle as *const () as usize, |original| {
-            originals.close_handle = Some(std::mem::transmute(original));
+            originals.close_handle = Some(std::mem::transmute::<usize, CloseHandleFn>(original));
         }),
         "GetFileSizeEx" => patch_slot(
             iat,
             hooked_get_file_size_ex as *const () as usize,
             |original| {
-                originals.get_file_size_ex = Some(std::mem::transmute(original));
+                originals.get_file_size_ex =
+                    Some(std::mem::transmute::<usize, GetFileSizeExFn>(original));
             },
         ),
         "GetFileTime" => patch_slot(
             iat,
             hooked_get_file_time as *const () as usize,
             |original| {
-                originals.get_file_time = Some(std::mem::transmute(original));
+                originals.get_file_time =
+                    Some(std::mem::transmute::<usize, GetFileTimeFn>(original));
             },
         ),
         "GetFileType" => patch_slot(
             iat,
             hooked_get_file_type as *const () as usize,
             |original| {
-                originals.get_file_type = Some(std::mem::transmute(original));
+                originals.get_file_type =
+                    Some(std::mem::transmute::<usize, GetFileTypeFn>(original));
             },
         ),
         "SetFilePointerEx" => patch_slot(
             iat,
             hooked_set_file_pointer_ex as *const () as usize,
             |original| {
-                originals.set_file_pointer_ex = Some(std::mem::transmute(original));
+                originals.set_file_pointer_ex =
+                    Some(std::mem::transmute::<usize, SetFilePointerExFn>(original));
             },
         ),
         _ => {}
@@ -640,7 +643,7 @@ fn log_open_virtual(path: &str, returned_handle: Handle, handle: VirtualHandle) 
             handle.as_raw()
         ));
     } else if index == 80 {
-        log::write_line("Open virtual logs suppressed".to_string());
+        log::write_line("Open virtual logs suppressed");
     }
 }
 
@@ -936,9 +939,9 @@ fn log_virtual_io(args: std::fmt::Arguments<'_>) {
     }
     let index = VIRTUAL_IO_LOGS.fetch_add(1, Ordering::Relaxed);
     if index < 512 {
-        log::write_line(args.to_string());
+        log::write_line(args);
     } else if index == 512 {
-        log::write_line("Virtual IO logs suppressed".to_string());
+        log::write_line("Virtual IO logs suppressed");
     }
 }
 

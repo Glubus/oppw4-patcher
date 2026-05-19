@@ -11,6 +11,7 @@ name = "dinput8"
 [dependencies]
 asm.workspace = true
 hooks.workspace = true
+plugin-host.workspace = true
 plugin-sdk.workspace = true
 struct-api.workspace = true
 tracing.workspace = true

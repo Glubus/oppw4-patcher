@@ -1,12 +1,8 @@
-use std::{
-    collections::HashSet,
-    io::{Cursor, Read},
-    path::PathBuf,
-};
+use std::{collections::HashSet, path::PathBuf};
 
-use plugin_sdk::{cstring_lossy, HostApi};
+use plugin_sdk::{zip::read_zip_entry_from_reader, HostApi};
 
-use crate::{ffi, log, mods::ModRepository, patching, LEGACY_NAME_HASH_CATALOG_ZIP};
+use crate::{log, mods::ModRepository, patching, provider, LEGACY_NAME_HASH_CATALOG_ZIP};
 
 const ARCHIVES: [&str; 8] = [
     "CharacterEditor",
@@ -40,9 +36,8 @@ pub fn initialize(host: HostApi<'_>) -> i32 {
         .collect::<Vec<_>>();
     log::write_line(format!("legacy mod paths: {}", legacy_mod_paths.len()));
     let replacements = scan_known_archives(&paths, &catalog, legacy_mod_paths);
-    let plugin_id = cstring_lossy("skin_patcher");
     let replacement_count = replacements.len();
-    let registered = ffi::register_replacements(host, &plugin_id, replacements);
+    let registered = provider::register_replacements(host, "skin_patcher", replacements);
     log::write_line(format!(
         "skin_patcher registered replacements result={registered} count={}",
         replacement_count
@@ -102,20 +97,14 @@ fn load_name_catalog(paths: &RuntimePaths) -> Vec<rdb::NameHashEntry> {
 }
 
 fn load_embedded_name_catalog() -> Vec<rdb::NameHashEntry> {
-    let cursor = Cursor::new(LEGACY_NAME_HASH_CATALOG_ZIP);
-    let Ok(mut archive) = zip::ZipArchive::new(cursor) else {
-        log::write_line("embedded name catalog zip parse failed");
-        return Vec::new();
+    let cursor = std::io::Cursor::new(LEGACY_NAME_HASH_CATALOG_ZIP);
+    let bytes = match read_zip_entry_from_reader(cursor, "name_hash_catalog.txt") {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            log::write_line(format!("embedded name catalog read failed: {error}"));
+            return Vec::new();
+        }
     };
-    let Ok(mut file) = archive.by_name("name_hash_catalog.txt") else {
-        log::write_line("embedded name catalog entry missing");
-        return Vec::new();
-    };
-    let mut bytes = Vec::with_capacity(file.size().min(usize::MAX as u64) as usize);
-    if let Err(error) = file.read_to_end(&mut bytes) {
-        log::write_line(format!("embedded name catalog read failed: {error}"));
-        return Vec::new();
-    }
     rdb::parse_name_hash_catalog(&bytes)
 }
 

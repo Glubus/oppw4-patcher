@@ -67,7 +67,7 @@ fn wait_for_fx_plan(api: &WorkerApi) -> FxInstallPlan {
             return config;
         }
         tick = tick.wrapping_add(1);
-        if tick == 1 || tick % 20 == 0 {
+        if tick == 1 || tick.is_multiple_of(20) {
             log::write_line("fx_director waiting for lua fx definitions");
         }
         thread::sleep(Duration::from_millis(250));
@@ -118,7 +118,7 @@ fn wait_for_active_character_gate(api: &WorkerApi, config: FxInstallPlan) {
             }
         }
         tick = tick.wrapping_add(1);
-        if tick % 20 == 0 {
+        if tick.is_multiple_of(20) {
             log::write_line("fx_director active character gate pending: no matching character yet");
         }
         thread::sleep(Duration::from_millis(250));

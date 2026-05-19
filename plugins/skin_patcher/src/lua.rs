@@ -1,20 +1,17 @@
 use std::ffi::c_void;
 
 use mlua::{Function, Lua, Table};
-use plugin_sdk::{cstring_lossy, HostApi, Oppw4LuaModule, PluginError};
+use plugin_sdk::{HostApi, PluginError};
 
 use crate::log;
 
 pub fn register(host: HostApi<'_>) {
-    let plugin_id = cstring_lossy("skin_patcher");
-    let module_name = cstring_lossy("skin_patcher");
-    let module = Oppw4LuaModule {
-        plugin_id: plugin_id.as_ptr(),
-        module_name: module_name.as_ptr(),
-        module_context: std::ptr::null_mut(),
-        register: Some(register_skin_patcher_module),
-    };
-    let result = match host.lua().register_module(&module) {
+    let result = match host.lua().register_module_fn(
+        "skin_patcher",
+        "skin_patcher",
+        std::ptr::null_mut(),
+        register_skin_patcher_module,
+    ) {
         Ok(()) => 0,
         Err(PluginError::HostCallFailed { code, .. }) => code,
         Err(_) => -1,

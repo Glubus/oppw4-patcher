@@ -30,7 +30,7 @@ pub(crate) fn parse_payload(text: &str) -> Result<Vec<u8>, String> {
             }
         }
     }
-    if hex.len() % 2 != 0 {
+    if !hex.len().is_multiple_of(2) {
         return Err("odd hex length".to_string());
     }
     let mut bytes = Vec::with_capacity(hex.len() / 2);

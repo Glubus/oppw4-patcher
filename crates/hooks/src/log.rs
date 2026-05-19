@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     OnceLock,
@@ -18,8 +19,8 @@ pub fn diagnostics_enabled() -> bool {
     DIAGNOSTICS_ENABLED.load(Ordering::Relaxed)
 }
 
-pub fn write_line(message: impl AsRef<str>) {
+pub fn write_line(message: impl Display) {
     if let Some(logger) = LOGGER.get() {
-        logger(message.as_ref().to_string());
+        logger(message.to_string());
     }
 }

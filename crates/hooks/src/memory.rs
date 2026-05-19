@@ -10,6 +10,13 @@ pub fn module_base() -> usize {
     win::main_module() as usize
 }
 
+/// Reads `len` bytes from a process address into `out`.
+///
+/// # Safety
+///
+/// `out` must be valid for writes of `len` bytes. The caller must ensure the
+/// target address belongs to the current process and that copying from it does
+/// not violate aliasing requirements for any Rust references.
 pub unsafe fn read_memory(address: usize, out: *mut u8, len: usize) -> i32 {
     if address == 0 || out.is_null() {
         return -1;
@@ -24,6 +31,13 @@ pub unsafe fn read_memory(address: usize, out: *mut u8, len: usize) -> i32 {
     0
 }
 
+/// Writes `len` bytes from `bytes` into a process address.
+///
+/// # Safety
+///
+/// `bytes` must be valid for reads of `len` bytes. The caller must ensure the
+/// target address belongs to the current process and that overwriting it is
+/// compatible with all code and data that may observe the region.
 pub unsafe fn write_memory(address: usize, bytes: *const u8, len: usize) -> i32 {
     if address == 0 || bytes.is_null() {
         return -1;
@@ -42,6 +56,12 @@ pub unsafe fn write_memory(address: usize, bytes: *const u8, len: usize) -> i32 
     0
 }
 
+/// Scans the current module image for a masked byte pattern.
+///
+/// # Safety
+///
+/// `pattern` and `mask` must both be valid for reads of `len` bytes. The mask
+/// uses zero bytes as wildcards and non-zero bytes as exact-match positions.
 pub unsafe fn scan_memory(pattern: *const u8, mask: *const u8, len: usize) -> usize {
     if pattern.is_null() || mask.is_null() || len == 0 {
         return 0;

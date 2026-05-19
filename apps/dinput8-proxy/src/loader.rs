@@ -35,11 +35,11 @@ fn initialize_loader_thread(base_dir: PathBuf) {
     } else {
         log::write_line("active character service disabled by config");
     }
-    plugin_sdk::host::set_logger(write_plugin_log);
-    plugin_sdk::host::set_debug_enabled(config.debug.enabled);
+    plugin_host::set_logger(write_plugin_log);
+    plugin_host::set_debug_enabled(config.debug.enabled);
     let paths = LoaderPaths::from_base_dir(base_dir);
     log_loader_paths(&paths);
-    plugin_sdk::host::initialize(&paths.game_root, &paths.plugin_root, log::session_stamp());
+    plugin_host::initialize(&paths.game_root, &paths.plugin_root, log::session_stamp());
 }
 
 fn write_hook_log(message: String) {

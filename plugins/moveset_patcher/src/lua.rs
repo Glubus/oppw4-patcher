@@ -6,20 +6,17 @@ use std::{
 };
 
 use mlua::{Function, Lua, Table};
-use plugin_sdk::{cstring_lossy, HostApi, Oppw4LuaModule, PluginError};
+use plugin_sdk::{HostApi, PluginError};
 
 use crate::{constants::PLUGIN_ID, log, payload, state};
 
 pub(crate) fn register(host: HostApi<'_>) {
-    let plugin_id = cstring_lossy(PLUGIN_ID);
-    let module_name = cstring_lossy(PLUGIN_ID);
-    let module = Oppw4LuaModule {
-        plugin_id: plugin_id.as_ptr(),
-        module_name: module_name.as_ptr(),
-        module_context: std::ptr::null_mut(),
-        register: Some(register_moveset_patcher_module),
-    };
-    let result = match host.lua().register_module(&module) {
+    let result = match host.lua().register_module_fn(
+        PLUGIN_ID,
+        PLUGIN_ID,
+        std::ptr::null_mut(),
+        register_moveset_patcher_module,
+    ) {
         Ok(()) => 0,
         Err(PluginError::HostCallFailed { code, .. }) => code,
         Err(_) => -1,
@@ -103,11 +100,11 @@ fn replace_movesets(_: &Lua, (character, moveset): (Table, Table)) -> mlua::Resu
         .or_else(|| character.get::<Option<String>>("name").ok().flatten())
         .unwrap_or_else(|| "unknown".to_string());
     let payload_len = payload.as_bytes().len();
-    state::with_mut(|state| state.set_entry_patch(entry as usize, payload.as_bytes().to_vec()))
-        .ok_or_else(|| mlua::Error::external("moveset_patcher state is not initialized"))?;
+    state::replace_entry(entry as usize, payload.as_bytes().as_ref())
+        .map_err(mlua::Error::external)?;
     log::write_global(format!(
         "moveset patch registered character={character_name} entry={entry} bytes={payload_len} patches={}",
-        state::with_mut(|state| state.edit_count()).unwrap_or(0)
+        state::edit_count()
     ));
     Ok(())
 }
@@ -469,7 +466,7 @@ mod tests {
     #[test]
     fn replace_movesets_targets_character_entry_before_source_entry() {
         crate::state::initialize(
-            PathBuf::from(r"C:\missing-game-root"),
+            plugin_sdk::HostApi::from(&test_linkdata_api()),
             PathBuf::from(r"C:\missing-mods-root"),
         )
         .ok();
@@ -497,8 +494,22 @@ mod tests {
 
         replace_movesets(&lua, (character, moveset)).expect("replace");
 
-        let edits = crate::state::with_mut(|state| state.edit_count()).unwrap_or(0);
+        let edits = crate::state::edit_count();
         assert!(edits >= 1);
+    }
+
+    fn test_linkdata_api() -> plugin_sdk::Oppw4PluginApi {
+        unsafe extern "system" fn replace_linkdata_entry(
+            _host_context: *mut std::ffi::c_void,
+            _patch: *const plugin_sdk::Oppw4LinkDataEntryPatch,
+        ) -> i32 {
+            0
+        }
+
+        plugin_sdk::Oppw4PluginApi {
+            replace_linkdata_entry: Some(replace_linkdata_entry),
+            ..plugin_abi::null_api()
+        }
     }
 
     fn write_zip(path: &Path, entries: &[(&str, &str)]) {

@@ -6,6 +6,8 @@ use std::{
     time::SystemTime,
 };
 
+use plugin_sdk::zip::{read_zip_entry, zip_entry_size};
+
 pub trait ReadSeek: Read + Seek {}
 
 impl<T> ReadSeek for T where T: Read + Seek {}
@@ -49,12 +51,7 @@ impl ReplacementSource {
             Self::ZipEntry {
                 zip_path,
                 entry_name,
-            } => {
-                let file = File::open(zip_path)?;
-                let mut archive = open_zip(file)?;
-                let entry = archive.by_name(entry_name).map_err(zip_error)?;
-                Ok(entry.size())
-            }
+            } => zip_entry_size(zip_path, entry_name),
         }
     }
 
@@ -85,24 +82,6 @@ impl fmt::Display for ReplacementSource {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(&self.display_name())
     }
-}
-
-fn read_zip_entry(zip_path: &Path, entry_name: &str) -> std::io::Result<Vec<u8>> {
-    let file = File::open(zip_path)?;
-    let mut archive = open_zip(file)?;
-    let mut entry = archive.by_name(entry_name).map_err(zip_error)?;
-    let capacity = entry.size().min(usize::MAX as u64) as usize;
-    let mut bytes = Vec::with_capacity(capacity);
-    entry.read_to_end(&mut bytes)?;
-    Ok(bytes)
-}
-
-fn open_zip(file: File) -> std::io::Result<zip::ZipArchive<File>> {
-    zip::ZipArchive::new(file).map_err(zip_error)
-}
-
-fn zip_error(error: zip::result::ZipError) -> std::io::Error {
-    std::io::Error::new(std::io::ErrorKind::InvalidData, error)
 }
 
 #[cfg(test)]

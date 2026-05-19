@@ -13,4 +13,6 @@ mlua.workspace = true
 lua-api.workspace = true
 plugin-sdk.workspace = true
 rdb.workspace = true
+
+[dev-dependencies]
 zip.workspace = true

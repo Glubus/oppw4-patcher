@@ -22,6 +22,13 @@ pub extern "system" fn DllMain(module: Hinstance, _reason: Dword, _reserved: Lpv
     TRUE
 }
 
+/// Forwards `DirectInput8Create` to the real system `dinput8.dll`.
+///
+/// # Safety
+///
+/// The caller must pass the same pointer arguments required by the Windows
+/// `DirectInput8Create` contract. `out` must be valid for the real function to
+/// initialize when the call succeeds.
 #[no_mangle]
 pub unsafe extern "system" fn DirectInput8Create(
     instance: Hinstance,
@@ -34,12 +41,24 @@ pub unsafe extern "system" fn DirectInput8Create(
     function(instance, version, riid, out, outer)
 }
 
+/// Forwards `DllCanUnloadNow` to the real system `dinput8.dll`.
+///
+/// # Safety
+///
+/// This export must be called only under the COM/Windows loader contract for
+/// `DllCanUnloadNow`; it delegates directly to the system DLL.
 #[no_mangle]
 pub unsafe extern "system" fn DllCanUnloadNow() -> Hresult {
     let function = win::dll_can_unload_now();
     function()
 }
 
+/// Forwards `DllGetClassObject` to the real system `dinput8.dll`.
+///
+/// # Safety
+///
+/// The caller must pass valid COM class/interface identifiers and an output
+/// pointer compatible with the Windows `DllGetClassObject` contract.
 #[no_mangle]
 pub unsafe extern "system" fn DllGetClassObject(
     class_id: RefGuid,
@@ -50,12 +69,24 @@ pub unsafe extern "system" fn DllGetClassObject(
     function(class_id, interface_id, out)
 }
 
+/// Forwards `DllRegisterServer` to the real system `dinput8.dll`.
+///
+/// # Safety
+///
+/// This export must be called only under the Windows registration contract; it
+/// delegates directly to the system DLL.
 #[no_mangle]
 pub unsafe extern "system" fn DllRegisterServer() -> Hresult {
     let function = win::dll_register_server();
     function()
 }
 
+/// Forwards `DllUnregisterServer` to the real system `dinput8.dll`.
+///
+/// # Safety
+///
+/// This export must be called only under the Windows registration contract; it
+/// delegates directly to the system DLL.
 #[no_mangle]
 pub unsafe extern "system" fn DllUnregisterServer() -> Hresult {
     let function = win::dll_unregister_server();

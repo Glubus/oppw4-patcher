@@ -1,7 +1,7 @@
 use std::{ffi::c_void, sync::Arc};
 
 use mlua::Lua;
-use plugin_sdk::{cstring_lossy, HostApi, Oppw4LuaModule, PluginError};
+use plugin_sdk::{HostApi, PluginError};
 
 use crate::log;
 
@@ -25,21 +25,19 @@ fn register_module(
     register: plugin_sdk::Oppw4LuaRegisterFn,
     state: SharedFxState,
 ) {
-    let plugin_id = cstring_lossy(plugin_id);
-    let module_name = cstring_lossy(name);
     let context = Box::into_raw(Box::new(state)).cast::<c_void>();
-    let module = Oppw4LuaModule {
-        plugin_id: plugin_id.as_ptr(),
-        module_name: module_name.as_ptr(),
-        module_context: context,
-        register: Some(register),
-    };
-    let result = match host.lua().register_module(&module) {
+    let result = match host
+        .lua()
+        .register_module_fn(plugin_id, name, context, register)
+    {
         Ok(()) => 0,
         Err(PluginError::HostCallFailed { code, .. }) => code,
         Err(_) => -1,
     };
     if result != 0 {
+        unsafe {
+            drop(Box::from_raw(context.cast::<SharedFxState>()));
+        }
         log::write_line(format!(
             "fx_director lua module register failed module={name} result={result}"
         ));

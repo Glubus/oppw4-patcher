@@ -365,12 +365,16 @@ mod tests {
     #[test]
     fn cycle_presets_override_full_fx_definition() {
         let base = FxConfig::default();
-        let mut first = FxConfig::default();
-        first.effect_id = 10;
-        first.target = TargetMode::LocalPlayer;
-        let mut second = FxConfig::default();
-        second.effect_id = 20;
-        second.animation_speed = 2.0;
+        let first = FxConfig {
+            effect_id: 10,
+            target: TargetMode::LocalPlayer,
+            ..FxConfig::default()
+        };
+        let second = FxConfig {
+            effect_id: 20,
+            animation_speed: 2.0,
+            ..FxConfig::default()
+        };
         let mut cycle = CycleConfig::default();
         cycle.set_presets([first, second]);
         cycle.interval_ms = 500;
@@ -391,15 +395,21 @@ mod tests {
     #[test]
     fn animation_cycle_waits_for_each_preset_duration() {
         let base = FxConfig::default();
-        let mut first = FxConfig::default();
-        first.effect_id = 10;
-        first.animation_speed = 0.016_666_667;
-        first.loop_start = 0.1;
-        first.loop_end = 1.9;
-        let mut second = first;
-        second.effect_id = 20;
-        let mut cycle = CycleConfig::default();
-        cycle.mode = CycleMode::AfterAnimation;
+        let first = FxConfig {
+            effect_id: 10,
+            animation_speed: 0.016_666_667,
+            loop_start: 0.1,
+            loop_end: 1.9,
+            ..FxConfig::default()
+        };
+        let second = FxConfig {
+            effect_id: 20,
+            ..first
+        };
+        let mut cycle = CycleConfig {
+            mode: CycleMode::AfterAnimation,
+            ..CycleConfig::default()
+        };
         cycle.set_presets([first, second]);
 
         assert_eq!(animation_duration_ms(first), 1800);

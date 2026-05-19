@@ -4,7 +4,7 @@ use std::{
 };
 
 pub fn cstring_lossy(value: impl AsRef<str>) -> CString {
-    crate::abi::cstring_lossy(value)
+    plugin_abi::cstring_lossy(value)
 }
 
 pub(crate) fn path_from_cstr(value: *const std::ffi::c_char) -> Option<PathBuf> {

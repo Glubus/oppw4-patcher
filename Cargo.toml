@@ -7,6 +7,8 @@ members = [
     "crates/asm",
     "crates/hooks",
     "crates/lua-api",
+    "crates/plugins/abi",
+    "crates/plugins/host",
     "crates/plugins/sdk",
     "crates/rdb",
     "plugins/skin_patcher",
@@ -25,6 +27,8 @@ rdb = { path = "crates/rdb" }
 struct-api = { path = "crates/struct-api" }
 asm = { path = "crates/asm" }
 plugin-sdk = { path = "crates/plugins/sdk" }
+plugin-abi = { path = "crates/plugins/abi" }
+plugin-host = { path = "crates/plugins/host" }
 hooks = { path = "crates/hooks" }
 lua-api = { path = "crates/lua-api" }
 mlua = { version = "0.10", features = ["lua54", "vendored"] }

@@ -67,7 +67,7 @@ struct InstallState {
 }
 
 fn install_now(worker_api: WorkerApi, config: FxInstallPlan) -> Result<(), String> {
-    let api = worker_api.api;
+    let api = worker_api.api.clone();
     if let Some(state) = installer::install_now(api.as_ref(), worker_api, config)? {
         let install = INSTALL.get_or_init(|| Mutex::new(None));
         *install.lock().map_err(|_| "install lock poisoned")? = Some(state);

@@ -101,7 +101,7 @@ pub(crate) fn build_from_sections(section_count: usize, sections: Table) -> mlua
         write_u32(&mut output, 4 + index * 4, cursor as u32);
         output.extend_from_slice(bytes);
         cursor += bytes.len();
-        while output.len() % 0x10 != 0 {
+        while !output.len().is_multiple_of(0x10) {
             output.push(0);
             cursor += 1;
         }
@@ -262,7 +262,7 @@ fn assemble_sections(section_bytes: Vec<Vec<u8>>) -> Vec<u8> {
         write_u32(&mut output, 4 + index * 4, cursor as u32);
         output.extend_from_slice(bytes);
         cursor += bytes.len();
-        while output.len() % 0x10 != 0 {
+        while !output.len().is_multiple_of(0x10) {
             output.push(0);
             cursor += 1;
         }

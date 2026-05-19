@@ -144,7 +144,7 @@ fn poll_active_character() {
             hooks::publish_local_player(local_player);
             if DEBUG_ENABLED.load(Ordering::Relaxed) {
                 let count = RECORD_LOG_COUNT.fetch_add(1, Ordering::Relaxed);
-                if count < 20 || count % 120 == 0 {
+                if count < 20 || count.is_multiple_of(120) {
                     log::write_line(format!(
                         "active_character raw local=0x{local_player:x} count={}",
                         count + 1

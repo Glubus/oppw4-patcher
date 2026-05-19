@@ -9,21 +9,11 @@ use crate::{
 
 pub(crate) type SharedFxState = Arc<Mutex<FxRuntimeState>>;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub(crate) struct FxInstallPlan {
     pub(crate) plugin: PluginConfig,
     pub(crate) fx: FxConfig,
     pub(crate) cycle: CycleConfig,
-}
-
-impl Default for FxInstallPlan {
-    fn default() -> Self {
-        Self {
-            plugin: PluginConfig::default(),
-            fx: FxConfig::default(),
-            cycle: CycleConfig::default(),
-        }
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -143,7 +133,7 @@ impl FxRuntimeState {
             self.cycle.preset_count,
             self.cycle
                 .preset_at(0)
-                .map(|fx| format_fx_summary(fx))
+                .map(format_fx_summary)
                 .unwrap_or_else(|| "none".to_string())
         ));
     }

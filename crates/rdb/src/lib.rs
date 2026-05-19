@@ -42,7 +42,7 @@ mod tests {
         block0[0x38..0x44].copy_from_slice(b"11c3971@138\0");
         bytes.extend_from_slice(&block0);
 
-        while bytes.len() % 4 != 0 {
+        while !bytes.len().is_multiple_of(4) {
             bytes.push(0);
         }
         assert_eq!(block0_offset, 0x20);

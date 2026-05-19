@@ -339,7 +339,7 @@ fn write_sections(
 
 fn uses_records(_payload: &[u8], section: &Section) -> bool {
     let len = section.end.saturating_sub(section.start);
-    section.record_size > 0 && len > 0 && len % section.record_size == 0
+    section.record_size > 0 && len > 0 && len.is_multiple_of(section.record_size)
 }
 
 fn record_size_for_output(payload: &[u8], section: &Section) -> usize {
@@ -357,7 +357,7 @@ fn write_records(
     syntax: Syntax,
     hex_words: bool,
 ) {
-    let size = if record_size > 0 && bytes.len() % record_size == 0 {
+    let size = if record_size > 0 && bytes.len().is_multiple_of(record_size) {
         record_size
     } else {
         bytes.len().max(4)

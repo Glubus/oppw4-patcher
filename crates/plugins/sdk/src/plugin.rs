@@ -10,7 +10,11 @@ pub trait Plugin {
     fn init(context: PluginContext<'_>) -> PluginResult<()>;
 }
 
-pub fn init_plugin<P: Plugin>(api: *const Oppw4PluginApi) -> i32 {
+/// # Safety
+///
+/// `api` must either be null or point to a valid host-owned [`Oppw4PluginApi`]
+/// table for the duration of plugin initialization.
+pub unsafe fn init_plugin<P: Plugin>(api: *const Oppw4PluginApi) -> i32 {
     let api = match unsafe { plugin_abi_from_raw(api) } {
         Ok(api) => api,
         Err(error) => return error.code(),
@@ -45,6 +49,6 @@ mod tests {
 
     #[test]
     fn init_plugin_rejects_null_api() {
-        assert_eq!(init_plugin::<TestPlugin>(std::ptr::null()), -1);
+        assert_eq!(unsafe { init_plugin::<TestPlugin>(std::ptr::null()) }, -1);
     }
 }

@@ -4,6 +4,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use plugin_sdk::zip::{is_zip_path, zip_file_entries};
+
 use crate::patching::{ModAsset, ReplacementSource};
 
 pub struct ModRepository {
@@ -51,21 +53,12 @@ impl ModRepository {
         zip_path: &Path,
         assets: &mut HashMap<String, ModAsset>,
     ) {
-        let Ok(file) = fs::File::open(zip_path) else {
-            return;
-        };
-        let Ok(mut archive) = zip::ZipArchive::new(file) else {
+        let Ok(entries) = zip_file_entries(zip_path) else {
             return;
         };
 
-        for index in 0..archive.len() {
-            let Ok(entry) = archive.by_index(index) else {
-                continue;
-            };
-            if !entry.is_file() {
-                continue;
-            };
-            let entry_name = entry.name().replace('\\', "/");
+        for entry in entries {
+            let entry_name = entry.name().to_string();
             let Some(file_name) = archive_entry_file_name(archive_name, &entry_name) else {
                 continue;
             };
@@ -198,8 +191,7 @@ fn entry_name_eq(entry: &fs::DirEntry, expected: &str) -> bool {
 }
 
 fn is_zip_file(path: &Path) -> bool {
-    path.extension()
-        .is_some_and(|extension| extension.eq_ignore_ascii_case("zip"))
+    is_zip_path(path)
 }
 
 fn archive_entry_file_name(archive_name: &str, entry_name: &str) -> Option<String> {

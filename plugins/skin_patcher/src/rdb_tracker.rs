@@ -20,10 +20,8 @@ impl TrackedFileKind {
 }
 
 pub fn tracked_read_from_path(path: &str) -> Option<TrackedRead> {
-    let file_name = std::path::Path::new(path)
-        .file_name()
-        .map(|name| name.to_string_lossy())?;
-    let (archive_name, kind) = tracked_archive_name(&file_name)?;
+    let file_name = path.rsplit(['\\', '/']).find(|part| !part.is_empty())?;
+    let (archive_name, kind) = tracked_archive_name(file_name)?;
     Some(TrackedRead { archive_name, kind })
 }
 

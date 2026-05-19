@@ -3,6 +3,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+type Subscriber<T> = Box<dyn Fn(T) + Send + Sync>;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct SignalId(&'static str);
 
@@ -18,7 +20,7 @@ impl SignalId {
 
 pub struct Signal<T> {
     id: SignalId,
-    subscribers: Mutex<Vec<Box<dyn Fn(T) + Send + Sync>>>,
+    subscribers: Mutex<Vec<Subscriber<T>>>,
 }
 
 impl<T: Clone> Signal<T> {

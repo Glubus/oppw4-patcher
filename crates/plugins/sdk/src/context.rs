@@ -1,8 +1,9 @@
 use std::path::PathBuf;
 
 use crate::{
-    HostApi, LogPolicy, Oppw4ActiveCharacter, Oppw4FileProvider, Oppw4GameStatus, Oppw4LuaModule,
-    Oppw4PluginApi, Plugin, PluginError, PluginModInfo, PluginResult, OPPW4_PLUGIN_API_VERSION,
+    HostApi, LogPolicy, Oppw4ActiveCharacter, Oppw4GameStatus, Oppw4LuaRegisterFn, Oppw4PluginApi,
+    Plugin, PluginError, PluginModInfo, PluginResult, VirtualFileProvider,
+    OPPW4_PLUGIN_API_VERSION,
 };
 
 #[derive(Clone, Copy)]
@@ -74,19 +75,29 @@ impl<'api> PluginContext<'api> {
         self.host.mods().plugin_mods()
     }
 
-    pub fn register_file_provider(self, provider: &Oppw4FileProvider) -> PluginResult<()> {
-        self.host.files().register_provider(provider)
+    pub fn register_virtual_file_provider(
+        self,
+        provider: VirtualFileProvider<'_>,
+    ) -> PluginResult<()> {
+        self.host.files().register_virtual_provider(provider)
     }
 
-    pub fn register_lua_module(self, module: &Oppw4LuaModule) -> PluginResult<()> {
-        self.host.lua().register_module(module)
+    pub fn register_lua_module_fn(
+        self,
+        module_name: &str,
+        module_context: *mut std::ffi::c_void,
+        register: Oppw4LuaRegisterFn,
+    ) -> PluginResult<()> {
+        self.host
+            .lua()
+            .register_module_fn(self.plugin_id, module_name, module_context, register)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::abi::null_api;
+    use plugin_abi::null_api;
 
     struct TestPlugin;
 

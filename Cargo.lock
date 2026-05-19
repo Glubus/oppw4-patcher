@@ -360,6 +360,7 @@ version = "0.1.0"
 dependencies = [
  "asm",
  "hooks",
+ "plugin-host",
  "plugin-sdk",
  "struct-api",
  "toml",
@@ -386,9 +387,9 @@ dependencies = [
 name = "oppw4-moveset-patcher-plugin"
 version = "0.1.0"
 dependencies = [
- "flate2",
  "lua-api",
  "mlua",
+ "plugin-abi",
  "plugin-sdk",
  "serde",
  "serde_json",
@@ -442,14 +443,33 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
 
 [[package]]
-name = "plugin-sdk"
+name = "plugin-abi"
+version = "0.1.0"
+
+[[package]]
+name = "plugin-host"
 version = "0.1.0"
 dependencies = [
  "hooks",
  "lua-api",
  "mlua",
+ "plugin-abi",
+ "plugin-sdk",
+ "tracing",
+]
+
+[[package]]
+name = "plugin-sdk"
+version = "0.1.0"
+dependencies = [
+ "flate2",
+ "hooks",
+ "lua-api",
+ "mlua",
+ "plugin-abi",
  "toml",
  "tracing",
+ "zip",
 ]
 
 [[package]]

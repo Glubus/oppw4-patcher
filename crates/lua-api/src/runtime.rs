@@ -2,7 +2,7 @@ use mlua::{Function, Lua, Table, Value};
 
 use struct_api::Character;
 
-use crate::LuaMod;
+use crate::{LuaMod, ModSource};
 
 #[derive(Debug)]
 pub enum LuaRunError {
@@ -33,7 +33,25 @@ where
 fn install_mod_globals(lua: &Lua, mod_entry: &LuaMod) -> mlua::Result<()> {
     let globals = lua.globals();
     globals.set("__oppw4_mod_id", mod_entry.manifest.id.as_str())?;
-    globals.set("__oppw4_mod_name", mod_entry.manifest.name.as_str())
+    globals.set("__oppw4_mod_name", mod_entry.manifest.name.as_str())?;
+    globals.set(
+        "__oppw4_mod_root",
+        match &mod_entry.source {
+            ModSource::Directory(root) => root.to_string_lossy().to_string(),
+            ModSource::Zip { path, .. } => path.to_string_lossy().to_string(),
+        },
+    )?;
+    globals.set(
+        "__oppw4_mod_zip_root",
+        match &mod_entry.source {
+            ModSource::Directory(_) => String::new(),
+            ModSource::Zip { root, .. } => root.clone(),
+        },
+    )?;
+    globals.set(
+        "__oppw4_mod_is_zip",
+        matches!(mod_entry.source, ModSource::Zip { .. }),
+    )
 }
 
 pub fn install_runtime(lua: &Lua) -> mlua::Result<()> {
@@ -149,8 +167,10 @@ fn character_handle_table(lua: &Lua, character: &Character) -> mlua::Result<Tabl
     table.set("kind", "character")?;
     table.set("known", true)?;
     table.set("unsafe", false)?;
-    table.set("id", character.model_id)?;
-    table.set("model_id", character.model_id)?;
+    if let Some(model_id) = character.model_id {
+        table.set("id", model_id)?;
+        table.set("model_id", model_id)?;
+    }
     if let Some(playable_id) = character.playable_id {
         table.set("playable_id", playable_id)?;
     }
@@ -159,6 +179,9 @@ fn character_handle_table(lua: &Lua, character: &Character) -> mlua::Result<Tabl
     }
     if let Some(boss_runtime_id) = character.boss_runtime_id {
         table.set("boss_runtime_id", boss_runtime_id)?;
+    }
+    if let Some(entry) = character.moveset_linkdata_entry {
+        table.set("moveset_linkdata_entry", entry)?;
     }
     table.set("name", character.canonical.as_str())?;
     table.set("canonical", character.canonical.as_str())?;
@@ -240,6 +263,7 @@ fn custom_character_handle_table(lua: &Lua, fields: Table) -> mlua::Result<Table
     copy_optional_u16(&fields, &table, "playable_id")?;
     copy_optional_u16(&fields, &table, "runtime_id")?;
     copy_optional_u16(&fields, &table, "boss_runtime_id")?;
+    copy_optional_u16(&fields, &table, "moveset_linkdata_entry")?;
     if table.get::<Option<u16>>("id")?.is_none() {
         if let Some(id) = id {
             table.set("id", id)?;

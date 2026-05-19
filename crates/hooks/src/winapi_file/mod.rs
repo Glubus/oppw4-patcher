@@ -18,7 +18,7 @@ use handles::{
 use types::*;
 
 static ORIGINALS: OnceLock<OriginalFunctions> = OnceLock::new();
-static FILE_PROVIDER: OnceLock<Mutex<Option<FileProvider>>> = OnceLock::new();
+static FILE_PROVIDERS: OnceLock<Mutex<Vec<FileProvider>>> = OnceLock::new();
 static OPEN_FILES: OnceLock<Mutex<OpenFileTracker>> = OnceLock::new();
 static CREATE_FILE_LOGS: AtomicUsize = AtomicUsize::new(0);
 static PATCH_READ_LOGS: AtomicUsize = AtomicUsize::new(0);
@@ -81,6 +81,7 @@ pub struct FileProviderRegistration<'a> {
 
 #[derive(Clone, Copy)]
 struct FileProvider {
+    id: usize,
     provider_context: usize,
     open_path: ProviderOpenPathFn,
     read: ProviderReadFn,
@@ -115,11 +116,13 @@ impl OpenFileTracker {
 
 pub fn register_file_provider(provider: FileProviderRegistration<'_>) -> i32 {
     let plugin_id = fixed_plugin_id(provider.plugin_id);
-    let registry = FILE_PROVIDER.get_or_init(|| Mutex::new(None));
+    let registry = FILE_PROVIDERS.get_or_init(|| Mutex::new(Vec::new()));
     let Ok(mut guard) = registry.lock() else {
         return -1;
     };
-    *guard = Some(FileProvider {
+    let id = guard.len();
+    guard.push(FileProvider {
+        id,
         provider_context: provider.provider_context as usize,
         open_path: provider.open_path,
         read: provider.read,
@@ -130,7 +133,7 @@ pub fn register_file_provider(provider: FileProviderRegistration<'_>) -> i32 {
         patch_read: provider.patch_read,
     });
     log::write_line(format!(
-        "file provider registered: {}",
+        "file provider registered: {} index={id}",
         String::from_utf8_lossy(&plugin_id)
             .trim_end_matches('\0')
             .to_string()
@@ -483,7 +486,59 @@ unsafe extern "system" fn hooked_set_file_pointer_ex(
 fn open_virtual_fake_handle(path: &str) -> Option<Handle> {
     let path = std::ffi::CString::new(path.as_bytes()).ok()?;
     let mut raw_handle = 0u64;
-    let opened = with_provider(|provider| unsafe {
+    let opened = with_providers(|providers| {
+        for provider in providers {
+            raw_handle = 0;
+            let opened = unsafe {
+                (provider.open_path)(
+                    provider.provider_context as *mut c_void,
+                    path.as_ptr(),
+                    &mut raw_handle,
+                )
+            };
+            if opened > 0 && raw_handle != 0 {
+                return Some(provider_handle(provider.id, raw_handle));
+            }
+        }
+        None
+    })??;
+    let virtual_handle = VirtualHandle::from_raw(opened);
+    let handle = returned_virtual_handle(virtual_handle);
+    log_open_virtual(
+        path.as_c_str().to_string_lossy().as_ref(),
+        handle,
+        virtual_handle,
+    );
+    Some(handle)
+}
+
+fn provider_handle(provider_id: usize, raw_handle: u64) -> u64 {
+    ((provider_id as u64) << 48) | (raw_handle & 0x0000_ffff_ffff_ffff)
+}
+
+fn split_provider_handle(handle: VirtualHandle) -> Option<(usize, u64)> {
+    let raw = handle.as_raw();
+    Some(((raw >> 48) as usize, raw & 0x0000_ffff_ffff_ffff))
+}
+
+fn with_provider_for_handle<T>(
+    handle: VirtualHandle,
+    action: impl FnOnce(&FileProvider, u64) -> T,
+) -> Option<T> {
+    let (provider_id, raw_handle) = split_provider_handle(handle)?;
+    with_providers(|providers| {
+        let provider = providers
+            .iter()
+            .find(|provider| provider.id == provider_id)?;
+        Some(action(provider, raw_handle))
+    })?
+}
+
+#[allow(dead_code)]
+fn old_open_virtual_fake_handle(path: &str) -> Option<Handle> {
+    let path = std::ffi::CString::new(path.as_bytes()).ok()?;
+    let mut raw_handle = 0u64;
+    let opened = with_first_provider(|provider| unsafe {
         (provider.open_path)(
             provider.provider_context as *mut c_void,
             path.as_ptr(),
@@ -532,12 +587,12 @@ unsafe fn read_virtual_file(
         }
         Some(offset as u64)
     };
-    let Some(mut read) = with_provider(|provider| {
+    let Some(mut read) = with_provider_for_handle(handle, |provider, raw_handle| {
         let mut read = 0u32;
         let result = unsafe {
             (provider.read)(
                 provider.provider_context as *mut c_void,
-                handle.as_raw(),
+                raw_handle,
                 buffer.cast(),
                 bytes_to_read,
                 requested_offset.map(|offset| offset as i64).unwrap_or(-1),
@@ -590,8 +645,8 @@ fn log_open_virtual(path: &str, returned_handle: Handle, handle: VirtualHandle) 
 }
 
 fn close_virtual_file(handle: VirtualHandle) -> Bool {
-    let closed = with_provider(|provider| unsafe {
-        (provider.close)(provider.provider_context as *mut c_void, handle.as_raw())
+    let closed = with_provider_for_handle(handle, |provider, raw_handle| unsafe {
+        (provider.close)(provider.provider_context as *mut c_void, raw_handle)
     })
     .filter(|closed| *closed > 0)
     .map(|_| 1)
@@ -608,10 +663,10 @@ unsafe fn get_virtual_file_size(handle: VirtualHandle, size: *mut LargeInteger) 
         return 0;
     }
     let mut file_size = 0u64;
-    let Some(result) = with_provider(|provider| unsafe {
+    let Some(result) = with_provider_for_handle(handle, |provider, raw_handle| unsafe {
         (provider.size)(
             provider.provider_context as *mut c_void,
-            handle.as_raw(),
+            raw_handle,
             &mut file_size,
         )
     }) else {
@@ -662,11 +717,11 @@ unsafe fn get_virtual_file_time(
 
 fn virtual_file_times(handle: VirtualHandle) -> Option<(FileTime, FileTime, FileTime)> {
     let mut raw = 0u64;
-    let result = with_provider(|provider| unsafe {
+    let result = with_provider_for_handle(handle, |provider, raw_handle| unsafe {
         let file_time = provider.file_time?;
         Some(file_time(
             provider.provider_context as *mut c_void,
-            handle.as_raw(),
+            raw_handle,
             &mut raw,
         ))
     })??;
@@ -693,10 +748,10 @@ unsafe fn seek_virtual_file(
     move_method: Dword,
 ) -> Bool {
     let mut position = 0u64;
-    let Some(result) = with_provider(|provider| unsafe {
+    let Some(result) = with_provider_for_handle(handle, |provider, raw_handle| unsafe {
         (provider.seek)(
             provider.provider_context as *mut c_void,
-            handle.as_raw(),
+            raw_handle,
             distance,
             move_method,
             &mut position,
@@ -717,11 +772,14 @@ unsafe fn seek_virtual_file(
     1
 }
 
-fn with_provider<T>(action: impl FnOnce(&FileProvider) -> T) -> Option<T> {
-    let provider = FILE_PROVIDER.get()?;
-    let guard = provider.lock().ok()?;
-    let provider = guard.as_ref()?;
-    Some(action(provider))
+fn with_providers<T>(action: impl FnOnce(&[FileProvider]) -> T) -> Option<T> {
+    let providers = FILE_PROVIDERS.get()?;
+    let guard = providers.lock().ok()?;
+    Some(action(&guard))
+}
+
+fn with_first_provider<T>(action: impl FnOnce(&FileProvider) -> T) -> Option<T> {
+    with_providers(|providers| providers.first().map(action)).flatten()
 }
 
 fn with_open_files<T>(action: impl FnOnce(&mut OpenFileTracker) -> T) -> Option<T> {
@@ -771,18 +829,23 @@ fn dispatch_patch_read(path: &str, os_handle: usize, read_offset: u64, buffer: &
     let Ok(path) = std::ffi::CString::new(path.as_bytes()) else {
         return;
     };
-    let patched = with_provider(|provider| unsafe {
-        let Some(patch_read) = provider.patch_read else {
-            return 0;
-        };
-        patch_read(
-            provider.provider_context as *mut c_void,
-            path.as_ptr(),
-            os_handle,
-            read_offset,
-            buffer.as_mut_ptr(),
-            buffer.len(),
-        )
+    let patched = with_providers(|providers| {
+        providers
+            .iter()
+            .filter_map(|provider| {
+                let patch_read = provider.patch_read?;
+                Some(unsafe {
+                    patch_read(
+                        provider.provider_context as *mut c_void,
+                        path.as_ptr(),
+                        os_handle,
+                        read_offset,
+                        buffer.as_mut_ptr(),
+                        buffer.len(),
+                    )
+                })
+            })
+            .sum::<i32>()
     })
     .unwrap_or_default();
     if patched == 0 || !DEBUG_FILE_IO_LOGS || PATCH_READ_LOGS.load(Ordering::Relaxed) >= 80 {

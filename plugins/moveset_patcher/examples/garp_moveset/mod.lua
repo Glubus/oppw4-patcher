@@ -1,0 +1,7 @@
+local moveset_patcher = require("moveset_patcher")
+
+local my_movesets = moveset_patcher.moveset({
+  payload_file = "garp_moveset_readable.json",
+})
+
+character.find("garp"):replace_movesets(my_movesets)

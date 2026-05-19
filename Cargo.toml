@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "apps/dinput8-proxy",
+    "apps/moveset-tool",
     "apps/rdb-tool",
     "crates/struct-api",
     "crates/asm",
@@ -10,6 +11,7 @@ members = [
     "crates/rdb",
     "plugins/skin_patcher",
     "plugins/fx_director",
+    "plugins/moveset_patcher",
 ]
 resolver = "2"
 
@@ -33,3 +35,4 @@ tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 toml = "0.8"
 zip = { version = "2", default-features = false, features = ["deflate"] }
+flate2 = "1"

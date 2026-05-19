@@ -74,8 +74,8 @@ fn create_default_manifest(plugin_dir: &Path, manifest_path: &Path) -> Result<()
         .file_name()
         .and_then(|name| name.to_str())
         .ok_or_else(|| "cannot infer plugin id from folder name".to_string())?;
-    let descriptor = PluginDescriptor::default_for_folder(folder_name, &entry)
-        .map_err(format_manifest_error)?;
+    let descriptor =
+        PluginDescriptor::default_for_folder(folder_name, &entry).map_err(format_manifest_error)?;
     fs::write(manifest_path, descriptor.to_toml()).map_err(|error| error.to_string())
 }
 

@@ -246,7 +246,7 @@ fn character_id_label(id: u16) -> String {
         if character.playable_id == Some(id) {
             return format!("{}:playable_id", character.canonical);
         }
-        if character.model_id == id {
+        if character.model_id == Some(id) {
             return format!("{}:model_id", character.canonical);
         }
     }

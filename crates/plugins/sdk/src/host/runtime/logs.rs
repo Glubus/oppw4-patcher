@@ -7,8 +7,8 @@ use std::{
     sync::{Mutex, OnceLock},
 };
 
-use crate::manifest::sanitize_plugin_id;
 use super::time;
+use crate::manifest::sanitize_plugin_id;
 
 static ROUTER: OnceLock<Mutex<PluginLogRouter>> = OnceLock::new();
 

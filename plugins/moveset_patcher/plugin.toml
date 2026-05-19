@@ -1,0 +1,4 @@
+[plugin]
+id = "moveset_patcher"
+version = "0.1.0"
+entry = "moveset_patcher.dll"

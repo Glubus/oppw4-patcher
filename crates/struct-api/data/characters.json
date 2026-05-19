@@ -11,6 +11,37 @@
       "mugiwara",
       "straw_hat",
       "monkey_d_luffy"
+    ],
+    "moveset_linkdata_entry": 68
+  },
+  {
+    "playable_id": null,
+    "runtime_id": null,
+    "boss_runtime_id": null,
+    "model_id": null,
+    "canonical": "luffy_bounceman",
+    "display_name": "Monkey D. Luffy Bounceman",
+    "model_stem": "UNKNOWN_Luffy_Bounceman",
+    "moveset_linkdata_entry": 208,
+    "aliases": [
+      "bounceman",
+      "boundman",
+      "luffy_boundman",
+      "luffy_bounce_man"
+    ]
+  },
+  {
+    "playable_id": null,
+    "runtime_id": null,
+    "boss_runtime_id": null,
+    "model_id": null,
+    "canonical": "luffy_snakeman",
+    "display_name": "Monkey D. Luffy Snakeman",
+    "model_stem": "UNKNOWN_Luffy_Snakeman",
+    "moveset_linkdata_entry": 209,
+    "aliases": [
+      "snakeman",
+      "luffy_snake_man"
     ]
   },
   {
@@ -21,6 +52,7 @@
     "canonical": "zoro",
     "display_name": "Roronoa Zoro",
     "model_stem": "MPLC001_Zoro",
+    "moveset_linkdata_entry": 69,
     "aliases": [
       "roronoa_zoro",
       "zorro"
@@ -51,7 +83,8 @@
     "model_id": 4,
     "canonical": "sanji",
     "display_name": "Sanji",
-    "model_stem": "MPLC004_Sanji"
+    "model_stem": "MPLC004_Sanji",
+    "moveset_linkdata_entry": 72
   },
   {
     "playable_id": 5,
@@ -99,7 +132,8 @@
     "model_stem": "MPLC009_Ace",
     "aliases": [
       "portgas_d_ace"
-    ]
+    ],
+    "moveset_linkdata_entry": 77
   },
   {
     "playable_id": 10,
@@ -138,7 +172,8 @@
       "whitebeard",
       "barbe_blanche",
       "edward_newgate"
-    ]
+    ],
+    "moveset_linkdata_entry": 80
   },
   {
     "playable_id": 13,
@@ -159,7 +194,8 @@
     "model_stem": "MPLC014_Mihawk",
     "aliases": [
       "dracule_mihawk"
-    ]
+    ],
+    "moveset_linkdata_entry": 82
   },
   {
     "playable_id": 15,
@@ -181,7 +217,8 @@
     "aliases": [
       "blackbeard",
       "marshall_d_teach"
-    ]
+    ],
+    "moveset_linkdata_entry": 84
   },
   {
     "playable_id": null,
@@ -202,7 +239,8 @@
     "model_stem": "MPLC018_Kizaru",
     "aliases": [
       "borsalino"
-    ]
+    ],
+    "moveset_linkdata_entry": 85
   },
   {
     "playable_id": 18,
@@ -214,7 +252,8 @@
     "model_stem": "MPLC019_Aokiji",
     "aliases": [
       "kuzan"
-    ]
+    ],
+    "moveset_linkdata_entry": 86
   },
   {
     "playable_id": 19,
@@ -226,7 +265,8 @@
     "model_stem": "MPLC020_Akainu",
     "aliases": [
       "sakazuki"
-    ]
+    ],
+    "moveset_linkdata_entry": 87
   },
   {
     "playable_id": 20,
@@ -244,12 +284,14 @@
     "model_id": 24,
     "canonical": "marco",
     "display_name": "Marco",
-    "model_stem": "MPLC024_Marco"
+    "model_stem": "MPLC024_Marco",
+    "moveset_linkdata_entry": 89
   },
   {
     "playable_id": 48,
     "runtime_id": 25,
     "boss_runtime_id": 25,
+    "moveset_linkdata_entry": 247,
     "model_id": 25,
     "canonical": "garp",
     "display_name": "Monkey D. Garp",
@@ -269,7 +311,8 @@
     "aliases": [
       "trafalgar_law",
       "trafalgar_d_water_law"
-    ]
+    ],
+    "moveset_linkdata_entry": 90
   },
   {
     "playable_id": 23,
@@ -282,7 +325,8 @@
     "aliases": [
       "doffy",
       "donquixote_doflamingo"
-    ]
+    ],
+    "moveset_linkdata_entry": 91
   },
   {
     "playable_id": 24,
@@ -300,7 +344,8 @@
     "model_id": 30,
     "canonical": "fujitora",
     "display_name": "Fujitora",
-    "model_stem": "MPLC030_Fujitora"
+    "model_stem": "MPLC030_Fujitora",
+    "moveset_linkdata_entry": 93
   },
   {
     "playable_id": 26,
@@ -309,7 +354,8 @@
     "model_id": 31,
     "canonical": "sabo",
     "display_name": "Sabo",
-    "model_stem": "MPLC031_Sabo"
+    "model_stem": "MPLC031_Sabo",
+    "moveset_linkdata_entry": 94
   },
   {
     "playable_id": 27,
@@ -339,7 +385,8 @@
     "model_id": 36,
     "canonical": "shanks",
     "display_name": "Shanks",
-    "model_stem": "MPLC036_Shanks"
+    "model_stem": "MPLC036_Shanks",
+    "moveset_linkdata_entry": 97
   },
   {
     "playable_id": 30,
@@ -420,6 +467,7 @@
     "playable_id": 38,
     "runtime_id": 46,
     "boss_runtime_id": 46,
+    "moveset_linkdata_entry": 106,
     "model_id": 46,
     "canonical": "linlin",
     "display_name": "Charlotte Linlin",
@@ -428,6 +476,22 @@
       "big_mom",
       "bigmom",
       "charlotte_linlin"
+    ]
+  },
+  {
+    "playable_id": null,
+    "runtime_id": null,
+    "boss_runtime_id": null,
+    "moveset_linkdata_entry": 212,
+    "model_id": null,
+    "canonical": "linlin_temperamented",
+    "display_name": "Charlotte Linlin Temperamented",
+    "model_stem": "UNKNOWN_Linlin_Temperamented",
+    "aliases": [
+      "big_mom_temperamented",
+      "bigmom_temperamented",
+      "temperamented_big_mom",
+      "temperamented_bigmom"
     ]
   },
   {
@@ -440,12 +504,14 @@
     "model_stem": "MPLC047_Katakuri",
     "aliases": [
       "charlotte_katakuri"
-    ]
+    ],
+    "moveset_linkdata_entry": 107
   },
   {
     "playable_id": 40,
     "runtime_id": 48,
     "boss_runtime_id": 48,
+    "moveset_linkdata_entry": 108,
     "model_id": 48,
     "canonical": "kaido",
     "display_name": "Kaido",
@@ -715,6 +781,7 @@
     "playable_id": 161,
     "runtime_id": 65,
     "boss_runtime_id": 284,
+    "moveset_linkdata_entry": 229,
     "model_id": 286,
     "canonical": "urouge",
     "display_name": "Urouge",
@@ -724,6 +791,7 @@
     "playable_id": 163,
     "runtime_id": 66,
     "boss_runtime_id": 285,
+    "moveset_linkdata_entry": 231,
     "model_id": 287,
     "canonical": "kiku",
     "display_name": "Kiku",
@@ -742,6 +810,7 @@
     "playable_id": 165,
     "runtime_id": 68,
     "boss_runtime_id": 286,
+    "moveset_linkdata_entry": 233,
     "model_id": 289,
     "canonical": "oden",
     "display_name": "Oden",
@@ -887,6 +956,7 @@
     "playable_id": 179,
     "runtime_id": 76,
     "boss_runtime_id": 25,
+    "moveset_linkdata_entry": 247,
     "model_id": 304,
     "canonical": "garp_yng",
     "display_name": "Monkey D. Garp (Young)",
@@ -899,6 +969,7 @@
     "playable_id": 180,
     "runtime_id": 77,
     "boss_runtime_id": 116,
+    "moveset_linkdata_entry": 248,
     "model_id": 305,
     "canonical": "rayleigh_yng",
     "display_name": "Rayleigh Young",
@@ -911,6 +982,7 @@
     "playable_id": 170,
     "runtime_id": 565,
     "boss_runtime_id": 48,
+    "moveset_linkdata_entry": 213,
     "model_id": 306,
     "canonical": "kaido_d2",
     "display_name": "Kaido Dragon",

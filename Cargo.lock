@@ -318,6 +318,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "moveset-tool"
+version = "0.1.0"
+dependencies = [
+ "flate2",
+]
+
+[[package]]
 name = "nu-ansi-term"
 version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -372,6 +379,19 @@ dependencies = [
  "plugin-sdk",
  "struct-api",
  "toml",
+ "zip",
+]
+
+[[package]]
+name = "oppw4-moveset-patcher-plugin"
+version = "0.1.0"
+dependencies = [
+ "flate2",
+ "lua-api",
+ "mlua",
+ "plugin-sdk",
+ "serde",
+ "serde_json",
  "zip",
 ]
 

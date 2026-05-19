@@ -11,7 +11,10 @@ pub struct Character {
     pub runtime_id: Option<u16>,
     #[serde(default)]
     pub boss_runtime_id: Option<u16>,
-    pub model_id: u16,
+    #[serde(default)]
+    pub moveset_linkdata_entry: Option<u16>,
+    #[serde(default)]
+    pub model_id: Option<u16>,
     pub canonical: String,
     pub display_name: String,
     pub model_stem: String,
@@ -55,7 +58,7 @@ pub fn find(query: &str) -> Option<&'static Character> {
 
 pub fn find_by_id(id: u16) -> Option<&'static Character> {
     all().iter().find(|character| {
-        character.model_id == id
+        character.model_id == Some(id)
             || character.playable_id == Some(id)
             || character.runtime_id == Some(id)
             || character.boss_runtime_id == Some(id)
@@ -128,27 +131,27 @@ mod tests {
         assert_eq!(law.playable_id, Some(22));
         assert_eq!(law.runtime_id, Some(26));
         assert_eq!(law.boss_runtime_id, Some(26));
-        assert_eq!(law.model_id, 26);
+        assert_eq!(law.model_id, Some(26));
 
         let zoro = find("zoro").unwrap();
         assert_eq!(zoro.playable_id, Some(1));
         assert_eq!(zoro.runtime_id, Some(1));
-        assert_eq!(zoro.model_id, 1);
+        assert_eq!(zoro.model_id, Some(1));
     }
 
     #[test]
     fn finds_by_aliases_and_model_stems() {
         assert_eq!(
             find("barbe blanche").map(|character| character.model_id),
-            Some(12)
+            Some(Some(12))
         );
         assert_eq!(
             find("MPLC026_Law").map(|character| character.model_id),
-            Some(26)
+            Some(Some(26))
         );
         assert_eq!(
             find("gear 5").map(|character| character.model_id),
-            Some(295)
+            Some(Some(295))
         );
     }
 
@@ -171,31 +174,109 @@ mod tests {
 
     #[test]
     fn includes_late_dlc_and_missing_mplc_entries() {
-        assert_eq!(find("kuma").map(|character| character.model_id), Some(17));
+        assert_eq!(
+            find("kuma").map(|character| character.model_id),
+            Some(Some(17))
+        );
         assert_eq!(
             find("bartolomeo").map(|character| character.model_id),
-            Some(37)
+            Some(Some(37))
         );
         assert_eq!(
             find("bonney").map(|character| character.model_id),
-            Some(314)
+            Some(Some(314))
         );
-        assert_eq!(find("z").map(|character| character.model_id), Some(327));
-        assert_eq!(find("king").map(|character| character.model_id), Some(328));
-        assert_eq!(find("eneru").map(|character| character.model_id), Some(322));
+        assert_eq!(
+            find("z").map(|character| character.model_id),
+            Some(Some(327))
+        );
+        assert_eq!(
+            find("king").map(|character| character.model_id),
+            Some(Some(328))
+        );
+        assert_eq!(
+            find("eneru").map(|character| character.model_id),
+            Some(Some(322))
+        );
     }
 
     #[test]
     fn includes_linkdata_npc_rows_with_model_ids() {
         let kaku = find("kaku").unwrap();
-        assert_eq!(kaku.model_id, 58);
+        assert_eq!(kaku.model_id, Some(58));
         assert_eq!(kaku.runtime_id, Some(107));
         assert_eq!(kaku.boss_runtime_id, Some(80));
-        assert_eq!(find("jabra").map(|character| character.model_id), Some(59));
-        assert_eq!(find("blueno").map(|character| character.model_id), Some(60));
+        assert_eq!(
+            find("jabra").map(|character| character.model_id),
+            Some(Some(59))
+        );
+        assert_eq!(
+            find("blueno").map(|character| character.model_id),
+            Some(Some(60))
+        );
         assert_eq!(
             find("bon clay").map(|character| character.model_id),
-            Some(56)
+            Some(Some(56))
+        );
+    }
+
+    #[test]
+    fn includes_known_moveset_linkdata_entries() {
+        assert_eq!(
+            find("zoro").and_then(|character| character.moveset_linkdata_entry),
+            Some(69)
+        );
+        assert_eq!(
+            find("luffy_bounceman").and_then(|character| character.moveset_linkdata_entry),
+            Some(208)
+        );
+        assert_eq!(
+            find("luffy_snakeman").and_then(|character| character.moveset_linkdata_entry),
+            Some(209)
+        );
+        assert_eq!(
+            find("linlin").and_then(|character| character.moveset_linkdata_entry),
+            Some(106)
+        );
+        assert_eq!(
+            find("big_mom_temperamented").and_then(|character| character.moveset_linkdata_entry),
+            Some(212)
+        );
+        assert_eq!(
+            find("kaido").and_then(|character| character.moveset_linkdata_entry),
+            Some(108)
+        );
+        assert_eq!(
+            find("kaido_d2").and_then(|character| character.moveset_linkdata_entry),
+            Some(213)
+        );
+        assert_eq!(
+            find("oden").and_then(|character| character.moveset_linkdata_entry),
+            Some(233)
+        );
+        assert_eq!(
+            find("urouge").and_then(|character| character.moveset_linkdata_entry),
+            Some(229)
+        );
+        assert_eq!(
+            find("kiku").and_then(|character| character.moveset_linkdata_entry),
+            Some(231)
+        );
+        assert_eq!(
+            find("bounceman").and_then(|character| character.model_id),
+            None
+        );
+        assert_eq!(
+            find("garp").and_then(|character| character.moveset_linkdata_entry),
+            Some(247)
+        );
+        assert_eq!(
+            find("garp_yng").and_then(|character| character.moveset_linkdata_entry),
+            Some(247)
+        );
+        assert_eq!(
+            find("rayleigh_yng").and_then(|character| character.moveset_linkdata_entry),
+            Some(248)
         );
     }
 
